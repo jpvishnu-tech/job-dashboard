@@ -1,0 +1,195 @@
+/* ============================================================
+   SETTINGS PAGE
+   ============================================================ */
+
+.settings-card {
+  display:        flex;
+  flex-direction: column;
+  gap:            0;
+}
+
+.settings-card__title {
+  font-size:     0.875rem;
+  font-weight:   700;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:         var(--color-text-muted);
+  padding:       16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.settings-card__title--danger { color: var(--color-red); }
+
+/* ---- Danger card border accent ---- */
+.settings-card--danger { border-color: rgba(239,68,68,.3); }
+
+/* ---- Card footer (save button row) ---- */
+.settings-card__footer {
+  padding:       12px 20px 16px;
+  border-top:    1px solid var(--color-border);
+  display:       flex;
+  justify-content: flex-end;
+}
+
+/* ---- Field rows ---- */
+.settings-field {
+  display:        flex;
+  flex-direction: column;
+  gap:            6px;
+  padding:        14px 20px;
+  border-bottom:  1px solid var(--color-border);
+}
+.settings-field:last-of-type { border-bottom: none; }
+
+/* Horizontal layout for label+control pairs */
+.settings-field--row {
+  flex-direction:  row;
+  align-items:     center;
+  justify-content: space-between;
+  gap:             16px;
+}
+
+/* Avatar row needs the image on the right */
+.settings-field--avatar { align-items: flex-start; }
+.settings-field--avatar .settings-label { font-size: 0.875rem; font-weight: 600; }
+
+/* ---- Labels and hints ---- */
+.settings-label {
+  display:     block;
+  font-size:   0.875rem;
+  font-weight: 600;
+  color:       var(--color-text);
+}
+
+.settings-hint {
+  display:   block;
+  font-size: 0.78rem;
+  color:     var(--color-text-muted);
+  margin-top:2px;
+}
+
+/* ---- Text inputs ---- */
+.settings-input {
+  padding:       9px 12px;
+  border:        1px solid var(--color-border);
+  border-radius: 8px;
+  background:    var(--color-bg);
+  color:         var(--color-text);
+  font-family:   var(--font);
+  font-size:     0.875rem;
+  outline:       none;
+  transition:    border-color 0.15s, box-shadow 0.15s;
+  width:         100%;
+}
+.settings-input:focus {
+  border-color: var(--color-primary);
+  box-shadow:   0 0 0 3px rgba(99,102,241,.12);
+}
+.settings-input:disabled {
+  opacity:0.55;
+  cursor: not-allowed;
+  background: var(--color-border);
+}
+
+/* ---- Avatar ---- */
+.settings-avatar {
+  width:        56px;
+  height:       56px;
+  border-radius:50%;
+  object-fit:   cover;
+  border:       2px solid var(--color-border);
+  flex-shrink:  0;
+}
+
+/* ---- Theme toggle (pill switch) ---- */
+.settings-toggle {
+  width:         48px;
+  height:        26px;
+  border-radius: 13px;
+  background:    var(--color-border);
+  border:        none;
+  cursor:        pointer;
+  position:      relative;
+  flex-shrink:   0;
+  transition:    background 0.22s;
+}
+.settings-toggle--on { background: var(--color-primary); }
+
+.settings-toggle__thumb {
+  position:      absolute;
+  top:           3px;
+  left:          3px;
+  width:         20px;
+  height:        20px;
+  border-radius: 50%;
+  background:    #fff;
+  box-shadow:    0 1px 3px rgba(0,0,0,.18);
+  transition:    transform 0.22s;
+}
+.settings-toggle--on .settings-toggle__thumb { transform: translateX(22px); }
+
+/* ---- Checkbox ---- */
+.settings-checkbox-wrap {
+  position:   relative;
+  display:    inline-block;
+  width:      18px;
+  height:     18px;
+  flex-shrink:0;
+  cursor:     pointer;
+}
+.settings-checkbox-wrap input {
+  opacity: 0;
+  position:absolute;
+  inset:   0;
+  margin:  0;
+  cursor:  pointer;
+}
+.settings-checkbox__mark {
+  position:      absolute;
+  inset:         0;
+  border:        2px solid var(--color-border);
+  border-radius: 4px;
+  background:    var(--color-surface);
+  transition:    background 0.15s, border-color 0.15s;
+}
+.settings-checkbox-wrap input:checked + .settings-checkbox__mark {
+  background:   var(--color-primary);
+  border-color: var(--color-primary);
+}
+.settings-checkbox-wrap input:checked + .settings-checkbox__mark::after {
+  content:     '';
+  display:     block;
+  position:    absolute;
+  left:        4px;
+  top:         1px;
+  width:       5px;
+  height:      9px;
+  border:      2px solid #fff;
+  border-top:  none;
+  border-left: none;
+  transform:   rotate(45deg);
+}
+
+/* ---- Danger button ---- */
+.btn--danger {
+  border:        1.5px solid var(--color-red);
+  color:         var(--color-red);
+  background:    transparent;
+  padding:       6px 14px;
+  border-radius: 7px;
+  font-family:   var(--font);
+  font-size:     0.84rem;
+  font-weight:   600;
+  cursor:        pointer;
+  white-space:   nowrap;
+  transition:    background 0.15s;
+}
+.btn--danger:hover { background: rgba(239,68,68,.08); }
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+  .settings-field--row {
+    flex-direction: column;
+    align-items:    flex-start;
+  }
+  .settings-field--row > :last-child { align-self: flex-start; }
+}

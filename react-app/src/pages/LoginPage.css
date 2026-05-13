@@ -1,0 +1,354 @@
+/* ============================================================
+   LOGIN PAGE
+   Full-viewport centered layout with card + tabs.
+   ============================================================ */
+
+.login-page {
+  min-height: 100vh;
+  display:    flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: 24px 16px;
+}
+
+/* ── Card ──────────────────────────────────────────────────── */
+
+.login-card {
+  background:    var(--color-surface);
+  border:        1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow:    var(--shadow-lg);
+  width:         100%;
+  max-width:     420px;
+  padding:       36px 32px 32px;
+  display:       flex;
+  flex-direction: column;
+  gap:           24px;
+}
+
+/* ── Branding ─────────────────────────────────────────────── */
+
+.login-brand {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+}
+
+.login-brand__icon {
+  width:           40px;
+  height:          40px;
+  border-radius:   10px;
+  background:      var(--color-primary);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  color:           #fff;
+  flex-shrink:     0;
+}
+
+.login-brand__icon .material-icons {
+  font-size: 22px;
+}
+
+.login-brand__name {
+  font-size:   1.15rem;
+  font-weight: 700;
+  color:       var(--color-text);
+}
+
+.login-brand__tagline {
+  font-size: 0.75rem;
+  color:     var(--color-text-muted);
+  margin-top: 1px;
+}
+
+/* ── Tab switcher ─────────────────────────────────────────── */
+
+.login-tabs {
+  display:       flex;
+  border-radius: 8px;
+  background:    var(--color-bg);
+  padding:       3px;
+  gap:           2px;
+}
+
+.login-tabs__btn {
+  flex:          1;
+  padding:       8px 0;
+  border:        none;
+  border-radius: 6px;
+  background:    transparent;
+  color:         var(--color-text-muted);
+  font-family:   var(--font);
+  font-size:     0.85rem;
+  font-weight:   600;
+  cursor:        pointer;
+  transition:    background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.login-tabs__btn--active {
+  background: var(--color-surface);
+  color:      var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Form ─────────────────────────────────────────────────── */
+
+.login-form {
+  display:        flex;
+  flex-direction: column;
+  gap:            16px;
+}
+
+.login-field {
+  display:        flex;
+  flex-direction: column;
+  gap:            5px;
+}
+
+.login-field__label {
+  font-size:   0.8rem;
+  font-weight: 600;
+  color:       var(--color-text);
+}
+
+.login-field__input-wrap {
+  position: relative;
+}
+
+.login-field__input {
+  width:         100%;
+  padding:       10px 14px;
+  border:        1px solid var(--color-border);
+  border-radius: 8px;
+  background:    var(--color-bg);
+  color:         var(--color-text);
+  font-family:   var(--font);
+  font-size:     0.9rem;
+  outline:       none;
+  transition:    border-color 0.18s, box-shadow 0.18s;
+}
+
+.login-field__input:focus {
+  border-color: var(--color-primary);
+  box-shadow:   0 0 0 3px rgba(99,102,241,.15);
+}
+
+.login-field__input--error {
+  border-color: var(--color-red);
+}
+
+.login-field__input--error:focus {
+  box-shadow: 0 0 0 3px rgba(239,68,68,.15);
+}
+
+/* Password visibility toggle */
+.login-field__input--has-toggle {
+  padding-right: 42px;
+}
+
+.login-field__toggle {
+  position:    absolute;
+  right:       10px;
+  top:         50%;
+  transform:   translateY(-50%);
+  background:  none;
+  border:      none;
+  cursor:      pointer;
+  color:       var(--color-text-muted);
+  display:     flex;
+  align-items: center;
+  padding:     4px;
+  border-radius: 4px;
+  transition:  color 0.15s;
+}
+
+.login-field__toggle:hover {
+  color: var(--color-text);
+}
+
+.login-field__toggle .material-icons {
+  font-size: 18px;
+}
+
+.login-field__error {
+  font-size: 0.775rem;
+  color:     var(--color-red);
+  display:   flex;
+  align-items: center;
+  gap:       4px;
+}
+
+.login-field__error .material-icons {
+  font-size: 14px;
+}
+
+/* ── Global form error (from backend) ────────────────────── */
+
+.login-error {
+  background:    color-mix(in srgb, var(--color-red) 10%, transparent);
+  border:        1px solid color-mix(in srgb, var(--color-red) 30%, transparent);
+  border-radius: 8px;
+  padding:       10px 14px;
+  font-size:     0.85rem;
+  color:         var(--color-red);
+  display:       flex;
+  align-items:   flex-start;
+  gap:           8px;
+}
+
+.login-error .material-icons {
+  font-size:  18px;
+  flex-shrink: 0;
+  margin-top:  1px;
+}
+
+/* ── Submit button ────────────────────────────────────────── */
+
+.login-submit {
+  width:           100%;
+  padding:         12px;
+  border:          none;
+  border-radius:   8px;
+  background:      var(--color-primary);
+  color:           #fff;
+  font-family:     var(--font);
+  font-size:       0.9rem;
+  font-weight:     700;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             8px;
+  transition:      background 0.18s, transform 0.15s, box-shadow 0.15s;
+  margin-top:      4px;
+}
+
+.login-submit:hover:not(:disabled) {
+  background:  var(--color-primary-dark);
+  transform:   translateY(-1px);
+  box-shadow:  0 4px 12px rgba(99,102,241,.35);
+}
+
+.login-submit:disabled {
+  opacity: 0.65;
+  cursor:  not-allowed;
+}
+
+/* spinner inside button */
+.login-submit__spinner {
+  width:        16px;
+  height:       16px;
+  border:       2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation:    spin 0.65s linear infinite;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+
+.login-footer {
+  text-align:  center;
+  font-size:   0.8rem;
+  color:       var(--color-text-muted);
+}
+
+.login-footer__link {
+  background:  none;
+  border:      none;
+  color:       var(--color-primary);
+  font-weight: 600;
+  cursor:      pointer;
+  font-size:   inherit;
+  padding:     0;
+  font-family: var(--font);
+}
+
+.login-footer__link:hover {
+  text-decoration: underline;
+}
+
+/* ── Success banner ───────────────────────────────────────── */
+
+.login-success {
+  background:    color-mix(in srgb, var(--color-green) 10%, transparent);
+  border:        1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
+  border-radius: 8px;
+  padding:       10px 14px;
+  font-size:     0.85rem;
+  color:         var(--color-green);
+  display:       flex;
+  align-items:   flex-start;
+  gap:           8px;
+}
+
+.login-success .material-icons {
+  font-size:  18px;
+  flex-shrink: 0;
+  margin-top:  1px;
+}
+
+/* ── Forgot password inline view ──────────────────────────── */
+
+.login-back-btn {
+  display:     inline-flex;
+  align-items: center;
+  gap:         4px;
+  background:  none;
+  border:      none;
+  color:       var(--color-text-muted);
+  font-family: var(--font);
+  font-size:   0.8rem;
+  cursor:      pointer;
+  padding:     0;
+  margin-bottom: 12px;
+  transition:  color 0.15s;
+}
+
+.login-back-btn:hover { color: var(--color-text); }
+.login-back-btn .material-icons { font-size: 16px; }
+
+.login-section-title {
+  font-size:   1.15rem;
+  font-weight: 700;
+  color:       var(--color-text);
+  margin:      0 0 4px;
+}
+
+.login-section-sub {
+  font-size: 0.85rem;
+  color:     var(--color-text-muted);
+  margin:    0;
+}
+
+/* ── Password field label row (label + forgot link inline) ── */
+
+.login-field__label-row {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  gap:             8px;
+}
+
+.login-forgot-link {
+  background:  none;
+  border:      none;
+  color:       var(--color-primary);
+  font-family: var(--font);
+  font-size:   0.75rem;
+  font-weight: 600;
+  cursor:      pointer;
+  padding:     0;
+  transition:  color 0.15s;
+}
+
+.login-forgot-link:hover { text-decoration: underline; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 28px 20px 24px;
+  }
+}

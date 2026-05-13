@@ -13,12 +13,13 @@
 //   Firebase Console → Authentication → Sign-in method
 //   → Enable "Email/Password" and/or "Google"
 // ============================================================
-
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 export const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId:             "YOUR_APP_ID",
+  apiKey: "AIzaSyARxyufXXWbumrM0OEWT-5AAsd64jZVtOw",
+  authDomain: "job-dashboard-f74f1.firebaseapp.com",
+  projectId: "job-dashboard-f74f1",
+  storageBucket: "job-dashboard-f74f1.firebasestorage.app",
+  messagingSenderId: "61222394146",
+  appId: "1:61222394146:web:5f1d617bb9b2ab5881ad7b",
+  measurementId: "G-SLJH3FJ6X7",
 };

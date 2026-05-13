@@ -1,0 +1,144 @@
+/* ============================================================
+   JOB TABLE CELLS
+   Styles for every cell variant rendered inside <JobCard>.
+   ============================================================ */
+
+/* ---- Company cell ---- */
+.co-cell {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+}
+
+.co-cell__logo {
+  width:        36px;
+  height:       36px;
+  border-radius:8px;
+  object-fit:   cover;
+  border:       1px solid var(--color-border);
+  flex-shrink:  0;
+}
+
+.co-cell__name {
+  font-size:   0.875rem;
+  font-weight: 600;
+  color:       var(--color-text);
+  white-space: nowrap;
+}
+
+/* ---- Role cell ---- */
+.role-cell {
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+}
+
+.role-cell__title {
+  font-size:   0.875rem;
+  font-weight: 600;
+  color:       var(--color-text);
+}
+
+.role-cell__dept {
+  font-size: 0.75rem;
+  color:     var(--color-text-muted);
+}
+
+/* ---- Location cell ---- */
+.loc-cell {
+  display:     flex;
+  align-items: center;
+  gap:         4px;
+  font-size:   0.84rem;
+  color:       var(--color-text-muted);
+  white-space: nowrap;
+}
+.loc-cell .material-icons { font-size: 16px; }
+
+/* ---- Salary ---- */
+.salary    { font-size: 0.84rem; font-weight: 500; color: var(--color-text); white-space: nowrap; }
+.salary--na { font-size: 0.84rem; color: var(--color-text-muted); }
+
+/* ---- Apply button ---- */
+.apply-btn {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           5px;
+  padding:       6px 14px;
+  border-radius: 7px;
+  border:        1.5px solid var(--color-primary);
+  background:    transparent;
+  color:         var(--color-primary);
+  font-family:   var(--font);
+  font-size:     0.8rem;
+  font-weight:   600;
+  cursor:        pointer;
+  white-space:   nowrap;
+  transition:    background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.apply-btn .material-icons { font-size: 15px; }
+
+.apply-btn:hover:not(:disabled) {
+  background:  var(--color-primary);
+  color:       #fff;
+  transform:   translateY(-1px);
+  box-shadow:  0 4px 10px rgba(99,102,241,.3);
+}
+.apply-btn:active { transform: scale(0.97); }
+
+/* Applied state — green, non-interactive */
+.apply-btn--applied {
+  border-color: var(--color-green);
+  color:        var(--color-green);
+  cursor:       default;
+}
+.apply-btn--applied:hover {
+  background:  transparent;
+  color:       var(--color-green);
+  transform:   none;
+  box-shadow:  none;
+}
+
+/* ── Row flash animation (navigated from search) ── */
+@keyframes row-flash {
+  0%   { background: rgba(99, 102, 241, 0.18); }
+  100% { background: transparent; }
+}
+.jobs-row--flash td { animation: row-flash 1.5s ease-out forwards; }
+
+/* ── Mobile card layout  (≤ 640px) ── */
+@media (max-width: 640px) {
+  /* Each <td> becomes a label-value flex row */
+  .jobs-row td {
+    display:         flex;
+    align-items:     center;
+    justify-content: space-between;
+    padding:         6px 0;
+    border:          none;
+    font-size:       0.84rem;
+    gap:             8px;
+  }
+
+  .jobs-row td[data-label]::before {
+    content:        attr(data-label);
+    font-size:      0.68rem;
+    font-weight:    700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color:          var(--color-text-muted);
+    min-width:      80px;
+    flex-shrink:    0;
+  }
+
+  /* Apply button cell: full-width, separated by a hairline */
+  .jobs-row td:last-child {
+    margin-top:  10px;
+    padding-top: 12px;
+    border-top:  1px solid var(--color-border);
+  }
+  .jobs-row td:last-child .apply-btn {
+    width:           100%;
+    justify-content: center;
+    padding:         10px 16px;
+  }
+}

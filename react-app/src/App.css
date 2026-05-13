@@ -1,0 +1,96 @@
+/* ============================================================
+   APP LAYOUT
+   Two-column grid: fixed sidebar + scrollable main wrapper.
+   ============================================================ */
+
+.app-layout {
+  display:    flex;
+  min-height: 100vh;
+}
+
+/* ── Main wrapper ──────────────────────────────────────────────────────────── */
+
+.main-wrapper {
+  flex:        1;
+  display:     flex;
+  flex-direction: column;
+  min-width:   0;   /* prevents flex children from overflowing */
+  /* Start without left margin; shifts right when the sidebar is expanded */
+  margin-left: var(--sidebar-collapsed-width);
+  /* Combine layout + theme transitions so neither cancels the other */
+  transition:
+    margin-left      var(--sidebar-transition),
+    background-color 0.28s ease;
+}
+
+/* When the sidebar is expanded (not collapsed), push the content right */
+.main-wrapper--expanded {
+  margin-left: var(--sidebar-width);
+}
+
+/* On mobile the sidebar is an overlay — content always fills full width */
+@media (max-width: 768px) {
+  .main-wrapper,
+  .main-wrapper--expanded { margin-left: 0; }
+}
+
+/* ── Content area ──────────────────────────────────────────────────────────── */
+
+.content {
+  flex:           1;
+  padding:        28px 28px 40px;
+  display:        flex;
+  flex-direction: column;
+  gap:            24px;
+  overflow-y:     auto;
+}
+
+/* Page header row: title/subtitle on the left, CTA on the right */
+.content__header {
+  display:         flex;
+  align-items:     flex-start;
+  justify-content: space-between;
+  gap:             16px;
+  flex-wrap:       wrap;
+}
+
+.content__title {
+  font-size:   1.5rem;
+  font-weight: 700;
+  color:       var(--color-text);
+}
+
+.content__subtitle {
+  font-size:  0.875rem;
+  color:      var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* Placeholder for sections not yet built */
+.content__placeholder {
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  justify-content: center;
+  gap:             16px;
+  min-height:      320px;
+  color:           var(--color-text-muted);
+  text-align:      center;
+}
+.content__placeholder .material-icons { font-size: 56px; opacity: 0.35; }
+.content__placeholder h2 { font-size: 1.2rem; font-weight: 700; color: var(--color-text); }
+.content__placeholder p  { font-size: 0.875rem; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (min-width: 1280px) {
+  .content { padding: 32px 36px 48px; }
+}
+
+@media (max-width: 1024px) {
+  .content { padding: 20px 20px 32px; }
+}
+
+@media (max-width: 640px) {
+  .content { padding: 14px 12px 24px; gap: 16px; }
+}

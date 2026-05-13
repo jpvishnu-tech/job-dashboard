@@ -1,0 +1,32 @@
+{
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase": "^12.13.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.2",
+    "nodemailer": "^8.0.7",
+    "react-router-dom": "^7.15.0",
+    "recharts": "^3.8.1"
+  },
+  "name": "job-dashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "auth-guard.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jpvishnu-tech/job-dashboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jpvishnu-tech/job-dashboard/issues"
+  },
+  "homepage": "https://github.com/jpvishnu-tech/job-dashboard#readme"
+}

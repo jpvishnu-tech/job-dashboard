@@ -1,0 +1,145 @@
+/* ============================================================
+   STAT CARDS GRID
+   4 columns on desktop → 2 on tablet → 1 on mobile
+   ============================================================ */
+
+.stats-grid {
+  display:               grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:                   20px;
+}
+
+@media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px)  { .stats-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   STAT CARD  (base)
+   ============================================================ */
+
+.stat-card {
+  background:    var(--color-surface);
+  border-radius: var(--radius);
+  padding:       20px 20px 16px;
+  display:       flex;
+  flex-direction:column;
+  gap:           14px;
+  box-shadow:    var(--shadow-sm);
+  position:      relative;
+  overflow:      hidden;
+  /* Coloured top-edge accent bar — set by modifier */
+  border-top:    4px solid transparent;
+  cursor:        default;
+  transition:
+    transform   0.22s ease,
+    box-shadow  0.22s ease,
+    background-color 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.stat-card:hover {
+  transform:  translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Decorative ghost circle in the top-right corner */
+.stat-card::before {
+  content:       '';
+  position:      absolute;
+  top:           -28px;
+  right:         -28px;
+  width:         96px;
+  height:        96px;
+  border-radius: 50%;
+  background:    currentColor;
+  opacity:       0.06;
+  pointer-events:none;
+  transition:    opacity 0.22s ease;
+}
+.stat-card:hover::before { opacity: 0.1; }
+
+/* ---- Color modifiers — set border-top and icon/value colour ---- */
+.stat-card--indigo { border-top-color: var(--color-primary); color: var(--color-primary); }
+.stat-card--green  { border-top-color: var(--color-green);   color: var(--color-green);   }
+.stat-card--amber  { border-top-color: var(--color-amber);   color: var(--color-amber);   }
+.stat-card--red    { border-top-color: var(--color-red);     color: var(--color-red);     }
+
+/* ---- Header row: icon + trend badge ---- */
+.stat-card__header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+}
+
+.stat-card__icon-wrap {
+  width:           44px;
+  height:          44px;
+  border-radius:   10px;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+  background:      color-mix(in srgb, currentColor 12%, transparent);
+  transition:      transform 0.22s ease;
+}
+.stat-card:hover .stat-card__icon-wrap { transform: scale(1.1) rotate(-4deg); }
+.stat-card__icon-wrap .material-icons  { font-size: 22px; }
+
+.stat-card__badge {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           2px;
+  padding:       3px 9px;
+  border-radius: 20px;
+  font-size:     0.71rem;
+  font-weight:   700;
+  letter-spacing:.01em;
+}
+.stat-card__badge .material-icons { font-size: 13px; }
+.stat-card__badge--up   { background: #dcfce7; color: #15803d; }
+.stat-card__badge--down { background: #fee2e2; color: #b91c1c; }
+[data-theme="dark"] .stat-card__badge--up   { background: #14302a; color: #86efac; }
+[data-theme="dark"] .stat-card__badge--down { background: #3d1f1f; color: #fca5a5; }
+
+/* ---- Body row: animated number + label ---- */
+.stat-card__body {
+  display:        flex;
+  flex-direction: column;
+  gap:            4px;
+}
+
+.stat-card__value {
+  font-size:     2.4rem;
+  font-weight:   800;
+  line-height:   1;
+  letter-spacing:-0.03em;
+  /* colour inherited from the modifier class via currentColor */
+}
+
+.stat-card__label {
+  font-size:  0.825rem;
+  font-weight:500;
+  color:      var(--color-text-muted);
+}
+
+/* ---- Footer row: meta text + progress bar ---- */
+.stat-card__footer { display: flex; flex-direction: column; gap: 6px; }
+
+.stat-card__meta { font-size: 0.71rem; color: var(--color-text-muted); }
+
+.stat-card__bar-wrap {
+  height:        5px;
+  background:    var(--color-border);
+  border-radius: 99px;
+  overflow:      hidden;
+}
+
+.stat-card__bar {
+  height:        100%;
+  width:         0;           /* starts at 0; useProgressBar animates to target */
+  border-radius: 99px;
+  background:    currentColor;
+  transition:    width 1s cubic-bezier(0.4, 0, 0.2, 1) 0.35s;
+}
+
+/* Responsive spacing */
+@media (max-width: 480px) { .stat-card { padding: 16px 14px 14px; } }

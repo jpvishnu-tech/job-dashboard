@@ -1,0 +1,230 @@
+/* ============================================================
+   RESET
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============================================================
+   DESIGN TOKENS  (CSS custom properties)
+   All colours, spacing, and motion values live here.
+   Changing a token propagates the change to every component.
+   ============================================================ */
+
+:root {
+  /* Layout */
+  --sidebar-width:           240px;
+  --sidebar-collapsed-width: 68px;
+  --navbar-height:           64px;
+
+  /* Core palette */
+  --color-bg:           #f1f5f9;
+  --color-surface:      #ffffff;
+  --color-primary:      #6366f1;
+  --color-primary-dark: #4f46e5;
+  --color-text:         #1e293b;
+  --color-text-muted:   #64748b;
+  --color-border:       #e2e8f0;
+
+  /* Accent / status */
+  --color-blue:   #3b82f6;
+  --color-purple: #8b5cf6;
+  --color-green:  #22c55e;
+  --color-amber:  #f59e0b;
+  --color-orange: #f97316;
+  --color-red:    #ef4444;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+
+  /* Type */
+  --font:   'Inter', system-ui, sans-serif;
+  --radius: 12px;
+
+  /* Sidebar slide speed */
+  --sidebar-transition: 0.25s ease;
+}
+
+/* Dark-mode token overrides — ThemeContext sets data-theme="dark" on <html> */
+[data-theme="dark"] {
+  --color-bg:           #0f172a;
+  --color-surface:      #1e293b;
+  --color-primary:      #818cf8;
+  --color-primary-dark: #6366f1;
+  --color-text:         #f1f5f9;
+  --color-text-muted:   #94a3b8;
+  --color-border:       #334155;
+  --color-amber:        #fbbf24;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.35);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.50);
+  --shadow-lg: 0 8px 28px rgba(0,0,0,.50);
+}
+
+/* ============================================================
+   GLOBAL TRANSITIONS
+   Applied universally so every surface cross-fades when the
+   theme flips. Layout-specific transitions (sidebar width,
+   margin-left) are set separately to avoid conflicts.
+   ============================================================ */
+
+*, *::before, *::after {
+  transition:
+    background-color 0.28s ease,
+    border-color     0.28s ease,
+    color            0.28s ease,
+    box-shadow       0.28s ease;
+}
+
+/* ============================================================
+   BODY / ROOT
+   ============================================================ */
+
+body {
+  font-family: var(--font);
+  background:  var(--color-bg);
+  color:       var(--color-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   SHARED UTILITIES
+   ============================================================ */
+
+/* ---- Card surface ---- */
+.card {
+  background:    var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow:    var(--shadow-sm);
+  border:        1px solid var(--color-border);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display:         inline-flex;
+  align-items:     center;
+  gap:             6px;
+  padding:         9px 18px;
+  border-radius:   8px;
+  border:          none;
+  font-family:     var(--font);
+  font-size:       0.875rem;
+  font-weight:     600;
+  cursor:          pointer;
+  text-decoration: none;
+  transition:      background 0.18s, transform 0.15s, box-shadow 0.15s;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color:      #fff;
+}
+.btn--primary:hover {
+  background:  var(--color-primary-dark);
+  transform:   translateY(-1px);
+  box-shadow:  0 4px 12px rgba(99,102,241,.35);
+}
+
+.btn--ghost {
+  background: transparent;
+  color:      var(--color-text-muted);
+  border:     1px solid var(--color-border);
+}
+.btn--ghost:hover {
+  background: var(--color-bg);
+  color:      var(--color-text);
+}
+
+.btn--sm { padding: 6px 12px; font-size: 0.8rem; }
+
+.btn .material-icons { font-size: 18px; }
+
+/* ---- Type badges ---- */
+.type-badge {
+  display:       inline-flex;
+  align-items:   center;
+  padding:       3px 10px;
+  border-radius: 20px;
+  font-size:     0.72rem;
+  font-weight:   700;
+  letter-spacing:.03em;
+  white-space:   nowrap;
+}
+.type-badge--full   { background: #e0e7ff; color: #3730a3; }
+.type-badge--remote { background: #dcfce7; color: #166534; }
+.type-badge--hybrid { background: #fef9c3; color: #854d0e; }
+.type-badge--onsite { background: #fee2e2; color: #991b1b; }
+
+[data-theme="dark"] .type-badge--full   { background: #1e1b4b; color: #a5b4fc; }
+[data-theme="dark"] .type-badge--remote { background: #14302a; color: #86efac; }
+[data-theme="dark"] .type-badge--hybrid { background: #3d2e0f; color: #fde047; }
+[data-theme="dark"] .type-badge--onsite { background: #3d1f1f; color: #fca5a5; }
+
+/* ---- Badge (sidebar notification count) ---- */
+.badge {
+  background:    var(--color-primary);
+  color:         #fff;
+  font-size:     0.65rem;
+  font-weight:   700;
+  padding:       2px 6px;
+  border-radius: 99px;
+  min-width:     18px;
+  text-align:    center;
+}
+
+/* ---- Shimmer skeleton animation ---- */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    color-mix(in srgb, var(--color-border) 60%, white) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+/* ---- Search highlight mark ---- */
+mark.search-mark {
+  background:    #fef08a;
+  color:         #713f12;
+  border-radius: 2px;
+  padding:       0 1px;
+}
+[data-theme="dark"] mark.search-mark { background: #854d0e; color: #fef9c3; }
+
+/* ---- Spinner (auth loading overlay) ---- */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.auth-loading-overlay {
+  position:        fixed;
+  inset:           0;
+  z-index:         9999;
+  background:      var(--color-bg);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  transition:      opacity 0.35s ease;
+}
+.auth-loading-overlay--done {
+  opacity:        0;
+  pointer-events: none;
+}
+.auth-loading-spinner {
+  width:      40px;
+  height:     40px;
+  border:     3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}

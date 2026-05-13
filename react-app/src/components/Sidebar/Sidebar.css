@@ -1,0 +1,292 @@
+/* ============================================================
+   SIDEBAR BACKDROP
+   Full-screen semi-transparent overlay shown on mobile when the
+   sidebar is open.  It sits behind the sidebar (z-index 99) and
+   closes it when tapped.
+   ============================================================ */
+
+.sidebar-backdrop {
+  position:       fixed;
+  inset:          0;
+  background:     rgba(15, 23, 42, 0.5);
+  z-index:        99;
+  opacity:        0;
+  pointer-events: none;
+  transition:     opacity 0.25s ease;
+}
+
+.sidebar-backdrop--visible {
+  opacity:        1;
+  pointer-events: auto;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.sidebar {
+  position:   fixed;
+  top:        0;
+  left:       0;
+  height:     100vh;
+  width:      var(--sidebar-width);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display:    flex;
+  flex-direction: column;
+  z-index:    100;
+  overflow:   hidden;
+  /* Width and theme properties combined so neither cancels the other */
+  transition:
+    width            var(--sidebar-transition),
+    background-color 0.28s ease,
+    border-color     0.28s ease;
+}
+
+/* Desktop collapsed — icon-strip only */
+.sidebar--collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+/* Mobile — slides in from the left as a full-height overlay */
+@media (max-width: 768px) {
+  .sidebar {
+    transform:  translateX(-100%);
+    transition:
+      transform        var(--sidebar-transition),
+      width            var(--sidebar-transition),
+      background-color 0.28s ease,
+      border-color     0.28s ease;
+    z-index: 200;
+  }
+  .sidebar--open {
+    transform:  translateX(0);
+    width:      var(--sidebar-width) !important;
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* ---- Brand / logo area ---- */
+.sidebar__brand {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  padding:     20px 18px 16px;
+  white-space: nowrap;
+  overflow:    hidden;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.sidebar__brand-icon {
+  font-size:   26px;
+  color:       var(--color-primary);
+  flex-shrink: 0;
+}
+
+.sidebar__brand-name {
+  font-size:   1.15rem;
+  font-weight: 700;
+  color:       var(--color-text);
+  letter-spacing: -0.02em;
+  opacity:     1;
+  transition:  opacity 0.2s ease;
+}
+.sidebar--collapsed .sidebar__brand-name { opacity: 0; pointer-events: none; }
+
+/* ---- Navigation list ---- */
+.sidebar__nav {
+  flex:       1;
+  overflow-y: auto;
+  padding:    12px 0;
+  scrollbar-width: none;
+}
+.sidebar__nav::-webkit-scrollbar { display: none; }
+
+.sidebar__nav-list {
+  list-style: none;
+  display:    flex;
+  flex-direction: column;
+  gap:        2px;
+  padding:    0 10px;
+}
+
+/* ---- Nav item ---- */
+.sidebar__nav-item { border-radius: 8px; }
+
+/* Active state — applied directly on the <NavLink> element by React Router */
+.sidebar__nav-link--active {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color:      var(--color-primary);
+}
+.sidebar__nav-link--active .sidebar__nav-icon-wrap {
+  background: var(--color-primary);
+  color:      #fff;
+}
+
+/* ---- Nav link (shared by <a> and <button>) ---- */
+.sidebar__nav-link {
+  display:         flex;
+  align-items:     center;
+  gap:             12px;
+  padding:         9px 10px;
+  border-radius:   8px;
+  color:           var(--color-text-muted);
+  text-decoration: none;
+  font-size:       0.875rem;
+  font-weight:     500;
+  white-space:     nowrap;
+  overflow:        hidden;
+  background:      transparent;
+  border:          none;
+  width:           100%;
+  cursor:          pointer;
+  font-family:     var(--font);
+  transition:      background 0.15s, color 0.15s;
+}
+
+.sidebar__nav-link:hover {
+  background: var(--color-bg);
+  color:      var(--color-text);
+}
+
+.sidebar__nav-link--danger       { color: var(--color-red); }
+.sidebar__nav-link--danger:hover { background: rgba(239,68,68,.08); color: var(--color-red); }
+
+/* ---- Icon wrap — coloured square ---- */
+.sidebar__nav-icon-wrap {
+  width:           36px;
+  height:          36px;
+  border-radius:   8px;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+  background:      transparent;
+  transition:      background 0.15s, color 0.15s, transform 0.22s;
+}
+
+.sidebar__nav-link:hover .sidebar__nav-icon-wrap { background: var(--color-border); }
+
+.sidebar__nav-icon-wrap .material-icons { font-size: 20px; }
+
+/* ---- Label — hidden when collapsed ---- */
+.sidebar__nav-label {
+  flex:       1;
+  min-width:  0;
+  opacity:    1;
+  transition: opacity 0.15s ease;
+}
+.sidebar--collapsed .sidebar__nav-label { opacity: 0; pointer-events: none; }
+
+/* ---- Tooltip — shown on hover when sidebar is collapsed ---- */
+.sidebar--collapsed .sidebar__nav-link {
+  position: relative;
+}
+.sidebar--collapsed .sidebar__nav-link[data-tooltip]:hover::after {
+  content:       attr(data-tooltip);
+  position:      absolute;
+  left:          calc(var(--sidebar-collapsed-width) - 4px);
+  top:           50%;
+  transform:     translateY(-50%);
+  background:    var(--color-text);
+  color:         var(--color-surface);
+  padding:       5px 10px;
+  border-radius: 6px;
+  font-size:     0.78rem;
+  font-weight:   500;
+  white-space:   nowrap;
+  pointer-events:none;
+  z-index:       200;
+  box-shadow:    var(--shadow-md);
+}
+
+/* ---- Section divider (e.g. before Admin nav) ---- */
+.sidebar__section-divider {
+  padding:     14px 20px 4px;
+  overflow:    hidden;
+}
+
+.sidebar__section-label {
+  font-size:      0.65rem;
+  font-weight:    700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color:          var(--color-text-muted);
+  opacity:        1;
+  transition:     opacity 0.15s;
+  white-space:    nowrap;
+}
+
+.sidebar--collapsed .sidebar__section-label {
+  opacity: 0;
+}
+
+/* collapsed — show a thin horizontal rule instead */
+.sidebar--collapsed .sidebar__section-divider {
+  padding:     8px 10px;
+  display:     flex;
+  align-items: center;
+}
+
+.sidebar--collapsed .sidebar__section-divider::after {
+  content:    '';
+  display:    block;
+  height:     1px;
+  width:      100%;
+  background: var(--color-border);
+}
+
+/* ---- User role sub-label ---- */
+.sidebar__user-info {
+  display:        flex;
+  flex-direction: column;
+  min-width:      0;
+}
+
+.sidebar__user-role {
+  font-size:   0.65rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color:       var(--color-primary);
+}
+
+/* ---- Footer ---- */
+.sidebar__footer {
+  padding:       10px;
+  border-top:    1px solid var(--color-border);
+  display:       flex;
+  flex-direction:column;
+  gap:           2px;
+  flex-shrink:   0;
+}
+
+/* Mini user info strip (shown when sidebar is expanded and user is signed in) */
+.sidebar__user {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  padding:     8px 10px 6px;
+  overflow:    hidden;
+  opacity:     1;
+  transition:  opacity 0.15s;
+}
+.sidebar--collapsed .sidebar__user { opacity: 0; pointer-events: none; height: 0; padding: 0; }
+
+.sidebar__user-avatar {
+  width:        32px;
+  height:       32px;
+  border-radius:50%;
+  object-fit:   cover;
+  flex-shrink:  0;
+}
+
+.sidebar__user-name {
+  font-size:   0.78rem;
+  font-weight: 600;
+  color:       var(--color-text);
+  white-space: nowrap;
+  overflow:    hidden;
+  text-overflow: ellipsis;
+}
