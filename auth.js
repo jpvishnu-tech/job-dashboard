@@ -1,4 +1,5 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp, getApps, getApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
   getAuth,
   onAuthStateChanged,
@@ -8,20 +9,29 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   updateProfile,
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig } from "./firebase-config.js";
+  browserLocalPersistence,
+  setPersistence,
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { firebaseConfig } from './firebase-config.js';
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-const PLACEHOLDER = firebaseConfig.apiKey === "YOUR_API_KEY";
+const CONFIGURED = Boolean(firebaseConfig?.apiKey) &&
+                   !firebaseConfig.apiKey.startsWith('YOUR_');
 
-let auth;
-if (!PLACEHOLDER) {
-  const app = initializeApp(firebaseConfig);
+let auth = null;
+
+if (CONFIGURED) {
+  // Safe init: reuse the existing app if another module already called
+  // initializeApp() on this page — prevents "app already exists" crash.
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
-  // Redirect to dashboard if already signed in
-  onAuthStateChanged(auth, (user) => {
-    if (user) window.location.replace("index.html");
+
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+  // If already signed in when the auth page loads, go straight to the dashboard.
+  onAuthStateChanged(auth, user => {
+    if (user) window.location.replace('index.html');
   });
 }
 
@@ -163,26 +173,20 @@ function friendlyError(code) {
 
 // ── Sign in ───────────────────────────────────────────────────────────────────
 
-formSignin.addEventListener("submit", async (e) => {
+formSignin.addEventListener('submit', async e => {
   e.preventDefault();
   clearBanner();
 
-  if (PLACEHOLDER) {
-    showBanner(
-      "Firebase is not configured yet. Edit firebase-config.js with your project credentials.",
-      "warn",
-    );
+  if (!auth) {
+    showBanner('Firebase is not configured. Edit firebase-config.js.', 'warn');
     return;
   }
 
   setLoading(siSubmit, true);
   try {
-    await signInWithEmailAndPassword(
-      auth,
-      siEmail.value.trim(),
-      siPassword.value,
-    );
-    // onAuthStateChanged will redirect to index.html
+    await signInWithEmailAndPassword(auth, siEmail.value.trim(), siPassword.value);
+    // Redirect immediately — don't wait for onAuthStateChanged to fire
+    window.location.replace('index.html');
   } catch (err) {
     showBanner(friendlyError(err.code));
     setLoading(siSubmit, false);
@@ -191,27 +195,22 @@ formSignin.addEventListener("submit", async (e) => {
 
 // ── Sign up ───────────────────────────────────────────────────────────────────
 
-formSignup.addEventListener("submit", async (e) => {
+formSignup.addEventListener('submit', async e => {
   e.preventDefault();
   clearBanner();
 
-  if (PLACEHOLDER) {
-    showBanner(
-      "Firebase is not configured yet. Edit firebase-config.js with your project credentials.",
-      "warn",
-    );
+  if (!auth) {
+    showBanner('Firebase is not configured. Edit firebase-config.js.', 'warn');
     return;
   }
 
   setLoading(suSubmit, true);
   try {
     const cred = await createUserWithEmailAndPassword(
-      auth,
-      suEmail.value.trim(),
-      suPassword.value,
+      auth, suEmail.value.trim(), suPassword.value,
     );
     await updateProfile(cred.user, { displayName: suName.value.trim() });
-    // onAuthStateChanged will redirect to index.html
+    window.location.replace('index.html');
   } catch (err) {
     showBanner(friendlyError(err.code));
     setLoading(suSubmit, false);
@@ -220,27 +219,22 @@ formSignup.addEventListener("submit", async (e) => {
 
 // ── Forgot password ───────────────────────────────────────────────────────────
 
-forgotBtn.addEventListener("click", async () => {
+forgotBtn.addEventListener('click', async () => {
   clearBanner();
 
-  if (PLACEHOLDER) {
-    showBanner(
-      "Firebase is not configured yet. Edit firebase-config.js with your project credentials.",
-      "warn",
-    );
+  if (!auth) {
+    showBanner('Firebase is not configured. Edit firebase-config.js.', 'warn');
     return;
   }
 
   const email = siEmail.value.trim();
   if (!email) {
-    showBanner(
-      'Enter your email address above, then click "Forgot password?".',
-    );
+    showBanner('Enter your email address above, then click "Forgot password?".');
     return;
   }
   try {
     await sendPasswordResetEmail(auth, email);
-    showBanner("Password reset email sent! Check your inbox.", "success");
+    showBanner('Password reset email sent! Check your inbox.', 'success');
   } catch (err) {
     showBanner(friendlyError(err.code));
   }
@@ -248,23 +242,19 @@ forgotBtn.addEventListener("click", async () => {
 
 // ── Google sign-in ────────────────────────────────────────────────────────────
 
-googleBtn.addEventListener("click", async () => {
+googleBtn.addEventListener('click', async () => {
   clearBanner();
 
-  if (PLACEHOLDER) {
-    showBanner(
-      "Firebase is not configured yet. Edit firebase-config.js with your project credentials.",
-      "warn",
-    );
+  if (!auth) {
+    showBanner('Firebase is not configured. Edit firebase-config.js.', 'warn');
     return;
   }
 
   try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-    // onAuthStateChanged will redirect
+    await signInWithPopup(auth, new GoogleAuthProvider());
+    window.location.replace('index.html');
   } catch (err) {
-    if (err.code !== "auth/cancelled-popup-request") {
+    if (err.code !== 'auth/cancelled-popup-request') {
       showBanner(friendlyError(err.code));
     }
   }
