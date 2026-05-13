@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Tells the browser which colour schemes are supported so native
+         UI elements (scrollbars, form inputs) also adapt to the theme -->
+    <meta name="color-scheme" content="light dark" />
+    <title>Job Dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Material Icons from Google for sidebar and navbar icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+
+  <body>
+
+    <!-- Auth loading overlay — removed by auth-guard.js once auth state is known -->
+    <div class="auth-loading" id="authLoading" aria-hidden="true">
+      <div class="auth-loading__spinner"></div>
+    </div>
+
+    <!-- Dim overlay behind the sidebar when it slides in on mobile -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+    <!-- ===== SIDEBAR ===== -->
+    <!-- Fixed left panel for primary navigation. Collapses on mobile. -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Brand / Logo area -->
+      <div class="sidebar__brand">
+        <span class="material-icons sidebar__brand-icon">work</span>
+        <span class="sidebar__brand-name">JobHub</span>
+      </div>
+
+      <!-- Main navigation links -->
+      <nav class="sidebar__nav">
+        <ul class="sidebar__nav-list">
+
+          <!-- Dashboard: overview page, active by default -->
+          <li class="sidebar__nav-item sidebar__nav-item--active" data-section="dashboard">
+            <a href="#" class="sidebar__nav-link" data-tooltip="Dashboard">
+              <!-- Icon wrapper gives it the coloured background on hover/active -->
+              <span class="sidebar__nav-icon-wrap">
+                <span class="material-icons">dashboard</span>
+              </span>
+              <span class="sidebar__nav-label">Dashboard</span>
+            </a>
+          </li>
+
+          <!-- Jobs: browse and search open positions -->
+          <li class="sidebar__nav-item" data-section="dashboard">
+            <a href="#" class="sidebar__nav-link" data-tooltip="Jobs">
+              <span class="sidebar__nav-icon-wrap">
+                <span class="material-icons">work_outline</span>
+              </span>
+              <span class="sidebar__nav-label">Jobs</span>
+            </a>
+          </li>
+
+          <!-- Applications: track submitted applications -->
+          <li class="sidebar__nav-item" data-section="dashboard">
+            <a href="#" class="sidebar__nav-link" data-tooltip="Applications">
+              <span class="sidebar__nav-icon-wrap">
+                <span class="material-icons">assignment</span>
+              </span>
+              <span class="sidebar__nav-label">Applications</span>
+              <!-- Badge shows pending-action count; hidden when sidebar collapses -->
+              <span class="badge">5</span>
+            </a>
+          </li>
+
+          <!-- Resume: manage and upload CV/resume files -->
+          <li class="sidebar__nav-item" data-section="resume">
+            <a href="#" class="sidebar__nav-link" data-tooltip="Resume">
+              <span class="sidebar__nav-icon-wrap">
+                <span class="material-icons">article</span>
+              </span>
+              <span class="sidebar__nav-label">Resume</span>
+            </a>
+          </li>
+
+          <!-- Settings: account preferences and notifications -->
+          <li class="sidebar__nav-item" data-section="dashboard">
+            <a href="#" class="sidebar__nav-link" data-tooltip="Settings">
+              <span class="sidebar__nav-icon-wrap">
+                <span class="material-icons">tune</span>
+              </span>
+              <span class="sidebar__nav-label">Settings</span>
+            </a>
+          </li>
+
+        </ul>
+      </nav>
+
+      <!-- Bottom section: user profile shortcut + logout -->
+      <div class="sidebar__footer">
+        <!-- Profile link mirrors the navbar avatar, useful when navbar is hidden -->
+        <a href="#" class="sidebar__nav-link" data-tooltip="Profile">
+          <span class="sidebar__nav-icon-wrap">
+            <span class="material-icons">account_circle</span>
+          </span>
+          <span class="sidebar__nav-label">Profile</span>
+        </a>
+        <a href="#" class="sidebar__nav-link sidebar__nav-link--danger" data-tooltip="Logout">
+          <span class="sidebar__nav-icon-wrap">
+            <span class="material-icons">logout</span>
+          </span>
+          <span class="sidebar__nav-label">Logout</span>
+        </a>
+      </div>
+
+    </aside>
+
+    <!-- ===== MAIN WRAPPER (navbar + content) ===== -->
+    <!-- Sits to the right of the sidebar; shifts left when sidebar collapses -->
+    <div class="main-wrapper" id="mainWrapper">
+
+      <!-- ===== NAVBAR ===== -->
+      <header class="navbar">
+
+        <!-- Hamburger — collapses sidebar on desktop, overlays it on mobile -->
+        <button class="navbar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+          <span class="material-icons">menu</span>
+        </button>
+
+        <!-- Search: icon + input + keyboard shortcut hint + clear button -->
+        <div class="navbar__search">
+          <span class="material-icons navbar__search-icon">search</span>
+          <input
+            type="text"
+            class="navbar__search-input"
+            id="navSearch"
+            placeholder="Search jobs, companies…"
+            autocomplete="off"
+          />
+          <!-- Ctrl+K hint badge — hidden while the user is typing -->
+          <kbd class="navbar__search-kbd">Ctrl K</kbd>
+          <!-- Clear button — shown only when input has a value -->
+          <button class="navbar__search-clear" id="searchClear" aria-label="Clear search" hidden>
+            <span class="material-icons">close</span>
+          </button>
+          <!-- Global search results overlay — rendered by JS as user types -->
+          <div class="search-overlay" id="searchOverlay" hidden role="listbox" aria-label="Search results"></div>
+        </div>
+
+        <!-- Right-side controls -->
+        <div class="navbar__actions">
+
+          <!-- Dark / light mode toggle — sliding pill with sun + moon icons -->
+          <button
+            class="theme-toggle"
+            id="darkToggle"
+            role="switch"
+            aria-checked="false"
+            aria-label="Toggle dark mode"
+          >
+            <span class="material-icons theme-toggle__icon--sun">light_mode</span>
+            <span class="theme-toggle__thumb"></span>
+            <span class="material-icons theme-toggle__icon--moon">dark_mode</span>
+          </button>
+
+          <!-- ---- Notifications with dropdown panel ---- -->
+          <div class="navbar__notif-wrap" id="notifWrap">
+            <button class="navbar__icon-btn" id="notifBtn" aria-label="Notifications" aria-expanded="false">
+              <span class="material-icons">notifications_none</span>
+              <!-- Pulsing red dot — hidden once "Mark all read" is clicked -->
+              <span class="navbar__notif-dot" id="notifDot"></span>
+            </button>
+
+            <!-- Dropdown panel (hidden attribute removed by JS when open) -->
+            <div class="notif-panel" id="notifPanel" hidden>
+              <div class="notif-panel__head">
+                <span class="notif-panel__title">Notifications</span>
+                <button class="notif-panel__mark-all" id="markAllRead">Mark all read</button>
+              </div>
+
+              <ul class="notif-list">
+                <!-- Unread items carry the --unread modifier class -->
+                <li class="notif-item notif-item--unread">
+                  <div class="notif-item__icon notif-item__icon--blue">
+                    <span class="material-icons">event</span>
+                  </div>
+                  <div class="notif-item__body">
+                    <p class="notif-item__text">Interview scheduled at <strong>Figma</strong></p>
+                    <span class="notif-item__time">2 hours ago</span>
+                  </div>
+                  <span class="notif-item__unread-dot"></span>
+                </li>
+                <li class="notif-item notif-item--unread">
+                  <div class="notif-item__icon notif-item__icon--green">
+                    <span class="material-icons">check_circle</span>
+                  </div>
+                  <div class="notif-item__body">
+                    <p class="notif-item__text">Application <strong>shortlisted</strong> by Stripe</p>
+                    <span class="notif-item__time">5 hours ago</span>
+                  </div>
+                  <span class="notif-item__unread-dot"></span>
+                </li>
+                <li class="notif-item">
+                  <div class="notif-item__icon notif-item__icon--purple">
+                    <span class="material-icons">description</span>
+                  </div>
+                  <div class="notif-item__body">
+                    <p class="notif-item__text">Your resume was <strong>viewed</strong> by Vercel</p>
+                    <span class="notif-item__time">Yesterday</span>
+                  </div>
+                  <span class="notif-item__unread-dot"></span>
+                </li>
+                <li class="notif-item">
+                  <div class="notif-item__icon notif-item__icon--orange">
+                    <span class="material-icons">work</span>
+                  </div>
+                  <div class="notif-item__body">
+                    <p class="notif-item__text">5 new jobs match your profile</p>
+                    <span class="notif-item__time">2 days ago</span>
+                  </div>
+                  <span class="notif-item__unread-dot"></span>
+                </li>
+              </ul>
+
+              <div class="notif-panel__footer">
+                <a href="#" class="notif-panel__view-all">View all notifications</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thin vertical rule separating notifications from profile -->
+          <div class="navbar__divider"></div>
+
+          <!-- ---- User profile with dropdown ---- -->
+          <div class="navbar__user-wrap" id="userWrap">
+            <!-- Clicking the whole button opens the dropdown -->
+            <button class="navbar__user" id="userBtn" aria-expanded="false">
+              <img
+                src="https://ui-avatars.com/api/?name=Alex+Johnson&background=6366f1&color=fff&size=36"
+                alt="User avatar"
+                class="navbar__avatar"
+              />
+              <div class="navbar__user-info">
+                <span class="navbar__user-name">Alex Johnson</span>
+                <span class="navbar__user-role">Job Seeker</span>
+              </div>
+              <!-- Caret icon rotates 180° when the dropdown is open -->
+              <span class="material-icons navbar__user-caret">expand_more</span>
+            </button>
+
+            <!-- User dropdown panel -->
+            <div class="user-panel" id="userPanel" hidden>
+              <!-- Avatar + name header inside the dropdown -->
+              <div class="user-panel__head">
+                <img
+                  src="https://ui-avatars.com/api/?name=Alex+Johnson&background=6366f1&color=fff&size=48"
+                  alt="Avatar"
+                  class="user-panel__avatar"
+                />
+                <div class="user-panel__info">
+                  <span class="user-panel__name">Alex Johnson</span>
+                  <span class="user-panel__email">alex@jobhub.io</span>
+                </div>
+              </div>
+
+              <ul class="user-panel__menu">
+                <li>
+                  <a href="#" class="user-panel__link">
+                    <span class="material-icons">person_outline</span>
+                    My Profile
+                  </a>
+                </li>
+                <li>
+                  <a href="#" class="user-panel__link">
+                    <span class="material-icons">article</span>
+                    My Resume
+                  </a>
+                </li>
+                <li>
+                  <a href="#" class="user-panel__link">
+                    <span class="material-icons">tune</span>
+                    Settings
+                  </a>
+                </li>
+                <li class="user-panel__divider"></li>
+                <li>
+                  <a href="#" class="user-panel__link user-panel__link--danger">
+                    <span class="material-icons">logout</span>
+                    Sign out
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      <!-- ===== MAIN CONTENT ===== -->
+      <main class="content">
+
+        <!-- Page heading (dashboard view) -->
+        <div class="content__header" id="dashboardHeader">
+          <div>
+            <h1 class="content__title">Dashboard</h1>
+            <p class="content__subtitle">Welcome back, Alex! Here's your job hunt at a glance.</p>
+          </div>
+          <!-- Primary CTA -->
+          <button class="btn btn--primary">
+            <span class="material-icons">add</span>
+            New Application
+          </button>
+        </div>
+
+        <!-- ===== STAT CARDS ===== -->
+        <!-- Four KPI tiles — numbers count up on load, bars animate in -->
+        <section class="stats-grid">
+
+          <!-- Jobs Applied -->
+          <div class="stat-card stat-card--indigo">
+            <!-- Top row: icon + trend badge -->
+            <div class="stat-card__header">
+              <div class="stat-card__icon-wrap">
+                <span class="material-icons">send</span>
+              </div>
+              <span class="stat-card__badge stat-card__badge--up">
+                <span class="material-icons">arrow_upward</span>12%
+              </span>
+            </div>
+            <!-- Middle row: animated count + label -->
+            <div class="stat-card__body">
+              <span class="stat-card__value" data-target="48">0</span>
+              <span class="stat-card__label">Jobs Applied</span>
+            </div>
+            <!-- Bottom row: context text + progress bar -->
+            <div class="stat-card__footer">
+              <span class="stat-card__meta">+5 from last month</span>
+              <div class="stat-card__bar-wrap">
+                <!-- width driven to --bar-pct by JS after page load -->
+                <div class="stat-card__bar" style="--bar-pct: 62%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interviews -->
+          <div class="stat-card stat-card--green">
+            <div class="stat-card__header">
+              <div class="stat-card__icon-wrap">
+                <span class="material-icons">event_available</span>
+              </div>
+              <span class="stat-card__badge stat-card__badge--up">
+                <span class="material-icons">arrow_upward</span>8%
+              </span>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__value" data-target="6">0</span>
+              <span class="stat-card__label">Interviews</span>
+            </div>
+            <div class="stat-card__footer">
+              <span class="stat-card__meta">12.5% interview rate</span>
+              <div class="stat-card__bar-wrap">
+                <div class="stat-card__bar" style="--bar-pct: 13%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending -->
+          <div class="stat-card stat-card--amber">
+            <div class="stat-card__header">
+              <div class="stat-card__icon-wrap">
+                <span class="material-icons">hourglass_top</span>
+              </div>
+              <span class="stat-card__badge stat-card__badge--up">
+                <span class="material-icons">arrow_upward</span>5%
+              </span>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__value" data-target="14">0</span>
+              <span class="stat-card__label">Pending</span>
+            </div>
+            <div class="stat-card__footer">
+              <span class="stat-card__meta">29% awaiting response</span>
+              <div class="stat-card__bar-wrap">
+                <div class="stat-card__bar" style="--bar-pct: 29%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rejected -->
+          <div class="stat-card stat-card--red">
+            <div class="stat-card__header">
+              <div class="stat-card__icon-wrap">
+                <span class="material-icons">cancel</span>
+              </div>
+              <!-- Down badge: rejection rate falling is a positive signal -->
+              <span class="stat-card__badge stat-card__badge--down">
+                <span class="material-icons">arrow_downward</span>3%
+              </span>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__value" data-target="9">0</span>
+              <span class="stat-card__label">Rejected</span>
+            </div>
+            <div class="stat-card__footer">
+              <span class="stat-card__meta">19% rejection rate</span>
+              <div class="stat-card__bar-wrap">
+                <div class="stat-card__bar" style="--bar-pct: 19%"></div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ===== JOBS TABLE ===== -->
+        <!-- Full-width card: toolbar + sortable table + pagination -->
+        <section class="jobs-section">
+          <div class="card">
+
+            <!-- Toolbar: title, count pill, search input, filter button -->
+            <div class="jobs-toolbar">
+              <div class="jobs-toolbar__left">
+                <h2 class="jobs-toolbar__title">Available Jobs</h2>
+                <span class="jobs-toolbar__count" id="jobsResultCount">148 positions</span>
+              </div>
+              <div class="jobs-toolbar__right">
+                <!-- Live filter — JS hides non-matching rows as you type -->
+                <div class="jobs-search">
+                  <span class="material-icons jobs-search__icon">search</span>
+                  <input
+                    type="text"
+                    id="jobsFilter"
+                    class="jobs-search__input"
+                    placeholder="Filter by company or role…"
+                    autocomplete="off"
+                  />
+                </div>
+                <button class="jobs-filter-btn">
+                  <span class="material-icons">tune</span>
+                  <span>Filter</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Table: horizontal scroll on narrow screens; card layout on mobile -->
+            <div class="jobs-table-wrap">
+              <table class="jobs-table">
+                <thead>
+                  <tr>
+                    <!-- data-sort="col-index" makes the header clickable for sorting -->
+                    <th data-sort="0">Company <span class="material-icons sort-icon">unfold_more</span></th>
+                    <th data-sort="1">Role <span class="material-icons sort-icon">unfold_more</span></th>
+                    <th>Location</th>
+                    <th data-sort="3">Salary <span class="material-icons sort-icon">unfold_more</span></th>
+                    <th>Type</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="jobsBody">
+
+                  <!-- Row 1 — Stripe -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Stripe&background=635bff&color=fff&size=36&bold=true" alt="Stripe" class="co-cell__logo" />
+                        <span class="co-cell__name">Stripe</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">Frontend Engineer</span>
+                        <span class="role-cell__dept">Engineering</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">location_on</span>San Francisco, CA
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="130">
+                      <span class="salary">$130k – $160k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--full">Full-time</span></td>
+                    <td>
+                      <!-- data-url: career page opened in new tab on click -->
+                      <button class="apply-btn" data-url="https://stripe.com/jobs">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 2 — Figma -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Figma&background=f24e1e&color=fff&size=36&bold=true" alt="Figma" class="co-cell__logo" />
+                        <span class="co-cell__name">Figma</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">UI/UX Designer</span>
+                        <span class="role-cell__dept">Design</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">public</span>Remote (US)
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="110">
+                      <span class="salary">$110k – $135k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--remote">Remote</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://www.figma.com/careers/">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 3 — Vercel -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Vercel&background=171717&color=fff&size=36&bold=true" alt="Vercel" class="co-cell__logo" />
+                        <span class="co-cell__name">Vercel</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">React Developer</span>
+                        <span class="role-cell__dept">Engineering</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">public</span>Remote (Global)
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="120">
+                      <span class="salary">$120k – $145k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--remote">Remote</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://vercel.com/careers">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 4 — Notion -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Notion&background=2e2e2e&color=fff&size=36&bold=true" alt="Notion" class="co-cell__logo" />
+                        <span class="co-cell__name">Notion</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">Software Engineer</span>
+                        <span class="role-cell__dept">Engineering</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">location_on</span>New York, NY
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="125">
+                      <span class="salary">$125k – $150k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--hybrid">Hybrid</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://www.notion.so/careers">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 5 — Linear -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Linear&background=5e6ad2&color=fff&size=36&bold=true" alt="Linear" class="co-cell__logo" />
+                        <span class="co-cell__name">Linear</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">Full-Stack Developer</span>
+                        <span class="role-cell__dept">Engineering</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">public</span>Remote (EU)
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="115">
+                      <span class="salary">$115k – $140k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--remote">Remote</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://linear.app/careers">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 6 — Shopify -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Shopify&background=96bf48&color=fff&size=36&bold=true" alt="Shopify" class="co-cell__logo" />
+                        <span class="co-cell__name">Shopify</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">Sr. Frontend Dev</span>
+                        <span class="role-cell__dept">Engineering</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">location_on</span>Toronto, CA
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="140">
+                      <span class="salary">$140k – $170k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--hybrid">Hybrid</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://www.shopify.com/careers">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 7 — Cloudflare -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Cloudflare&background=f38020&color=fff&size=36&bold=true" alt="Cloudflare" class="co-cell__logo" />
+                        <span class="co-cell__name">Cloudflare</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">Systems Engineer</span>
+                        <span class="role-cell__dept">Infrastructure</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">location_on</span>Austin, TX
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="135">
+                      <span class="salary">$135k – $165k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--onsite">On-site</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://www.cloudflare.com/careers/jobs/">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 8 — Supabase -->
+                  <tr>
+                    <td data-label="Company">
+                      <div class="co-cell">
+                        <img src="https://ui-avatars.com/api/?name=Supabase&background=3ecf8e&color=fff&size=36&bold=true" alt="Supabase" class="co-cell__logo" />
+                        <span class="co-cell__name">Supabase</span>
+                      </div>
+                    </td>
+                    <td data-label="Role">
+                      <div class="role-cell">
+                        <span class="role-cell__title">JavaScript Developer</span>
+                        <span class="role-cell__dept">Engineering</span>
+                      </div>
+                    </td>
+                    <td data-label="Location">
+                      <div class="loc-cell">
+                        <span class="material-icons">public</span>Remote (Global)
+                      </div>
+                    </td>
+                    <td data-label="Salary" data-value="100">
+                      <span class="salary">$100k – $125k</span>
+                    </td>
+                    <td data-label="Type"><span class="type-badge type-badge--remote">Remote</span></td>
+                    <td>
+                      <button class="apply-btn" data-url="https://supabase.com/careers">
+                        <span class="material-icons">open_in_new</span>Apply
+                      </button>
+                    </td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination footer — controlled by JS when live data is loaded -->
+            <div class="jobs-pagination">
+              <span class="jobs-pagination__info" id="jobsPageInfo">Showing 1–8 of 148 positions</span>
+              <div class="jobs-pagination__pages" id="jobsPageBtns">
+                <button class="page-btn" disabled aria-label="Previous page">
+                  <span class="material-icons">chevron_left</span>
+                </button>
+                <button class="page-btn page-btn--active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <span class="page-dots">···</span>
+                <button class="page-btn">19</button>
+                <button class="page-btn" aria-label="Next page">
+                  <span class="material-icons">chevron_right</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ===== RESUME SECTION ===== -->
+        <section id="resumeSection" hidden>
+
+          <!-- Section heading -->
+          <div class="content__header">
+            <div>
+              <h1 class="content__title">My Resume</h1>
+              <p class="content__subtitle">Upload your PDF resume to share with potential employers.</p>
+            </div>
+          </div>
+
+          <div class="card resume-card">
+
+            <!-- Drag-and-drop upload zone (visible when no resume is stored) -->
+            <div class="resume-dropzone" id="resumeDropzone">
+              <span class="material-icons resume-dropzone__icon">upload_file</span>
+              <p class="resume-dropzone__title">Drag &amp; drop your resume here</p>
+              <p class="resume-dropzone__sub">PDF files only · Max 10 MB</p>
+              <!-- Label wraps the hidden input so the whole button triggers the picker -->
+              <label class="btn btn--primary resume-dropzone__btn">
+                <span class="material-icons">folder_open</span>
+                Browse files
+                <input type="file" id="resumeFileInput" accept=".pdf,application/pdf" hidden />
+              </label>
+              <!-- Inline validation error shown below the button -->
+              <p class="resume-dropzone__error" id="resumeDropzoneError" hidden></p>
+            </div>
+
+            <!-- Upload progress bar (visible while uploading) -->
+            <div class="resume-progress" id="resumeProgress" hidden>
+              <span class="material-icons resume-progress__spin">hourglass_top</span>
+              <div class="resume-progress__body">
+                <span class="resume-progress__name" id="resumeProgressName"></span>
+                <div class="resume-progress__track">
+                  <div class="resume-progress__fill" id="resumeProgressFill"></div>
+                </div>
+                <span class="resume-progress__pct" id="resumeProgressPct">0%</span>
+              </div>
+            </div>
+
+            <!-- File info bar (visible once a resume is stored) -->
+            <div class="resume-meta" id="resumeMeta" hidden>
+              <div class="resume-meta__left">
+                <span class="material-icons resume-meta__pdf-icon">picture_as_pdf</span>
+                <div>
+                  <span class="resume-meta__name" id="resumeMetaName"></span>
+                  <span class="resume-meta__info" id="resumeMetaInfo"></span>
+                </div>
+              </div>
+              <div class="resume-meta__actions">
+                <!-- Replace wraps a hidden file input -->
+                <label class="btn btn--ghost btn--sm">
+                  <span class="material-icons">upload</span>
+                  Replace
+                  <input type="file" id="resumeReplaceInput" accept=".pdf,application/pdf" hidden />
+                </label>
+                <button class="btn btn--ghost btn--sm resume-meta__remove" id="resumeRemoveBtn">
+                  <span class="material-icons">delete_outline</span>
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            <!-- PDF preview iframe (visible once a resume is stored) -->
+            <div class="resume-preview" id="resumePreview" hidden>
+              <iframe
+                class="resume-preview__frame"
+                id="resumeFrame"
+                title="Resume preview"
+              ></iframe>
+              <p class="resume-preview__fallback">
+                PDF not rendering?
+                <a id="resumeDownloadLink" href="#" download>Download your resume</a>
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div><!-- end .main-wrapper -->
+
+    <script src="script.js"></script>
+    <!-- Auth guard: checks Firebase auth state; redirects to auth.html if not signed in -->
+    <script type="module" src="auth-guard.js"></script>
+    <!-- Resume upload + PDF preview module -->
+    <script type="module" src="resume.js"></script>
+  </body>
+</html>
