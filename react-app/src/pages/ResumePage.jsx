@@ -2,93 +2,36 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import './ResumePage.css';
 
-const MAX_BYTES  = 10 * 1024 * 1024; // 10 MB
-const BUCKET     = 'resumes';
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const BUCKET    = 'resumes';
 
-/**
- * Upload a file to Supabase Storage via XMLHttpRequest so that the
- * onprogress event delivers real byte-level progress to the UI.
- * progressRef is populated so callers can call .abort() on unmount.
- *
- * Returns the Supabase public URL for the uploaded object.
- */
-function uploadToSupabase(file, storagePath, progressRef, onProgress) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    progressRef.current = xhr;
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      progressRef.current = null;
-      if (xhr.status === 200 || xhr.status === 201) {
-        // Derive the public URL from the known Supabase Storage URL pattern.
-        // Requires the "resumes" bucket to have public access enabled in the
-        // Supabase dashboard (Storage → Policies → Make bucket public).
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-        resolve(data.publicUrl);
-      } else {
-        let msg = `Upload failed (${xhr.status})`;
-        try { msg = JSON.parse(xhr.responseText)?.message ?? msg; } catch { /* keep default */ }
-        reject(new Error(msg));
-      }
-    };
-
-    xhr.onerror  = () => { progressRef.current = null; reject(new Error('Network error during upload')); };
-    xhr.onabort  = () => { progressRef.current = null; reject(new Error('Upload cancelled')); };
-
-    // PUT with x-upsert:true overwrites an object with the same path, which
-    // means Replace works without needing a prior delete call.
-    xhr.open('PUT', `${supabaseUrl}/storage/v1/object/${BUCKET}/${encodeURIComponent(storagePath)}`);
-    xhr.setRequestHeader('Authorization',  `Bearer ${supabaseKey}`);
-    xhr.setRequestHeader('Content-Type',   'application/pdf');
-    xhr.setRequestHeader('x-upsert',       'true');
-    xhr.send(file);
-  });
-}
-
-/** Build a unique, filesystem-safe storage path for a given file. */
 function buildStoragePath(fileName) {
   const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
   return `${Date.now()}-${safe}`;
 }
 
 export default function ResumePage() {
-  const [file,       setFile]       = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [publicUrl,  setPublicUrl]  = useState(null);
-  const [dragging,   setDragging]   = useState(false);
-  const [uploading,  setUploading]  = useState(false);
-  const [progress,   setProgress]   = useState(0);
-  const [errorMsg,   setErrorMsg]   = useState('');
-  const [copied,     setCopied]     = useState(false);
+  const [file,          setFile]          = useState(null);
+  const [previewUrl,    setPreviewUrl]    = useState(null);
+  const [publicUrl,     setPublicUrl]     = useState(null);
+  const [dragging,      setDragging]      = useState(false);
+  const [uploading,     setUploading]     = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [errorMsg,      setErrorMsg]      = useState('');
+  const [copied,        setCopied]        = useState(false);
 
   const fileInputRef = useRef(null);
   const dragCounter  = useRef(0);
-  // Holds the live XMLHttpRequest so it can be aborted on unmount or remove.
-  const progressRef  = useRef(null);
 
-  // Revoke the blob URL when it changes or on unmount.
   useEffect(() => {
     return () => {
       if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  // Abort any in-flight upload when the component unmounts.
-  useEffect(() => {
-    return () => { progressRef.current?.abort(); };
-  }, []);
-
   const processFile = useCallback(async (f) => {
     setErrorMsg('');
+    setUploadSuccess(false);
 
     if (f.type !== 'application/pdf') {
       setErrorMsg('Only PDF files are supported.');
@@ -99,25 +42,39 @@ export default function ResumePage() {
       return;
     }
 
-    // Release the previous blob URL before creating a new one.
     if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
 
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
     setPublicUrl(null);
     setUploading(true);
-    setProgress(0);
 
     const storagePath = buildStoragePath(f.name);
+    console.log('[Resume] Upload start —', storagePath, `(${(f.size / 1024).toFixed(1)} KB)`);
 
     try {
-      const url = await uploadToSupabase(f, storagePath, progressRef, setProgress);
-      setPublicUrl(url);
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .upload(storagePath, f, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('[Resume] Upload error —', error.message, error);
+        throw new Error(error.message);
+      }
+
+      console.log('[Resume] Upload success —', data);
+
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+      console.log('[Resume] Public URL —', urlData.publicUrl);
+
+      setPublicUrl(urlData.publicUrl);
+      setUploadSuccess(true);
     } catch (err) {
-      // Ignore deliberate aborts triggered by handleRemove / unmount.
-      if (err.message === 'Upload cancelled') return;
+      console.error('[Resume] Upload failed —', err);
       setErrorMsg(`Upload failed: ${err.message}`);
-      // Roll back UI to the drop-zone state on error.
       if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
       setFile(null);
       setPreviewUrl(null);
@@ -150,17 +107,16 @@ export default function ResumePage() {
   const handleFileInput = (e) => {
     const f = e.target.files[0];
     if (f) processFile(f);
-    e.target.value = ''; // allow re-selecting the same file
+    e.target.value = '';
   };
 
   const handleRemove = () => {
-    progressRef.current?.abort();
     if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     setFile(null);
     setPreviewUrl(null);
     setPublicUrl(null);
     setUploading(false);
-    setProgress(0);
+    setUploadSuccess(false);
     setErrorMsg('');
     setCopied(false);
   };
@@ -173,8 +129,8 @@ export default function ResumePage() {
   };
 
   const formatBytes = (n) => {
-    if (n < 1024)           return `${n} B`;
-    if (n < 1024 * 1024)   return `${(n / 1024).toFixed(1)} KB`;
+    if (n < 1024)         return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   };
 
@@ -200,7 +156,13 @@ export default function ResumePage() {
         </div>
       )}
 
-      {/* Hidden file input — triggered by drop zone click or Replace button */}
+      {uploadSuccess && (
+        <div className="resume-success">
+          <span className="material-icons">check_circle</span>
+          Resume uploaded successfully!
+        </div>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
@@ -210,7 +172,6 @@ export default function ResumePage() {
       />
 
       {!file ? (
-        /* ── Drop zone ───────────────────────────────────────────── */
         <div
           className={`resume-dropzone${dragging ? ' resume-dropzone--active' : ''}`}
           onDrop={handleDrop}
@@ -231,7 +192,6 @@ export default function ResumePage() {
           <p className="resume-dropzone__secondary">PDF only · Max 10 MB</p>
         </div>
       ) : (
-        /* ── File card ───────────────────────────────────────────── */
         <div className="card resume-card">
           <div className="resume-meta">
             <span className="material-icons resume-meta__icon">picture_as_pdf</span>
@@ -268,20 +228,15 @@ export default function ResumePage() {
             )}
           </div>
 
-          {/* Upload progress bar */}
           {uploading && (
             <div className="resume-progress">
               <div className="resume-progress__bar">
-                <div
-                  className="resume-progress__fill"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="resume-progress__fill resume-progress__fill--indeterminate" />
               </div>
-              <span className="resume-progress__pct">{Math.round(progress)}%</span>
+              <span className="resume-progress__pct">Uploading…</span>
             </div>
           )}
 
-          {/* Inline PDF preview */}
           {previewUrl && !uploading && (
             <div className="resume-preview">
               <iframe
