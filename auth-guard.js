@@ -70,13 +70,15 @@ if (!configured) {
     const interview = apps.filter(a => a.status === 'interview').length;
     const pending   = apps.filter(a => a.status === 'pending').length;
     const rejected  = apps.filter(a => a.status === 'rejected').length;
-    const counts    = [total, interview, pending, rejected];
+    const offer     = apps.filter(a => a.status === 'offer').length;
+    const counts    = [total, interview, pending, rejected, offer];
     const totDen    = total || 1;
     const pcts      = [
       100,
       Math.round(interview / totDen * 100),
       Math.round(pending   / totDen * 100),
       Math.round(rejected  / totDen * 100),
+      Math.round(offer     / totDen * 100),
     ];
 
     document.querySelectorAll('.stat-card__value').forEach((el, i) => {
@@ -96,23 +98,37 @@ if (!configured) {
 
   const _applied = new Set();
 
-  async function loadFirestore(uid) {
+  async function loadFirestore(user, displayName) {
+    const uid = user.uid;
     try {
       const {
-        getFirestore, collection, getDocs, doc, setDoc, serverTimestamp,
+        getFirestore, collection, onSnapshot, doc, getDoc, setDoc, updateDoc,
+        deleteDoc, serverTimestamp,
       } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
-      const db      = getFirestore(app);
-      const colRef  = () => collection(db, 'users', uid, 'applications');
-      const docKey  = url => btoa(url).replace(/[/+=]/g, '_').slice(0, 500);
-      const fetchApps = async () => (await getDocs(colRef())).docs.map(d => d.data());
+      const db     = getFirestore(app);
+      const colRef = collection(db, 'users', uid, 'applications');
+      const docKey = url => btoa(url).replace(/[/+=]/g, '_').slice(0, 500);
 
-      // Load existing applied jobs
-      const apps = await fetchApps();
-      apps.forEach(a => _applied.add(a.url));
-      updateStatCards(apps);
+      // Reveal admin nav link for admin users (fire-and-forget)
+      getDoc(doc(db, 'admins', uid)).then(snap => {
+        if (snap.exists()) {
+          const adminItem = document.getElementById('adminNavItem');
+          if (adminItem) adminItem.hidden = false;
+        }
+      }).catch(() => {});
 
-      // Replace stub hub with live implementation
+      // Save / update profile data
+      setDoc(doc(db, 'users', uid, 'profile', 'data'), {
+        displayName: displayName || user.displayName || '',
+        email:       user.email  || '',
+        photoURL:    user.photoURL || '',
+        lastLogin:   serverTimestamp(),
+      }, { merge: true }).catch(err =>
+        console.warn('[hub] profile save failed:', err.message)
+      );
+
+      // Replace stub hub with live implementation (before snapshot fires)
       window._hub = {
         isApplied: url => _applied.has(url),
 
@@ -121,6 +137,8 @@ if (!configured) {
           _applied.add(job.url);
           try {
             await setDoc(doc(db, 'users', uid, 'applications', docKey(job.url)), {
+              uid:       uid,
+              email:     user.email    || '',
               company:   job.company   || '',
               role:      job.role      || '',
               location:  job.location  || '',
@@ -129,11 +147,31 @@ if (!configured) {
               url:       job.url,
               status:    'pending',
               appliedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
             });
-            updateStatCards(await fetchApps());
           } catch (err) {
             _applied.delete(job.url);
             console.warn('[hub] saveApplication failed:', err.message);
+          }
+        },
+
+        async updateApplicationStatus(appId, newStatus) {
+          try {
+            await updateDoc(doc(db, 'users', uid, 'applications', appId), {
+              status:    newStatus,
+              updatedAt: serverTimestamp(),
+            });
+          } catch (err) {
+            console.warn('[hub] updateApplicationStatus failed:', err.message);
+          }
+        },
+
+        async deleteApplication(appId, url) {
+          try {
+            await deleteDoc(doc(db, 'users', uid, 'applications', appId));
+            _applied.delete(url);
+          } catch (err) {
+            console.warn('[hub] deleteApplication failed:', err.message);
           }
         },
 
@@ -147,7 +185,17 @@ if (!configured) {
         },
       };
 
-      window._hub.refreshApplied();
+      // Real-time listener — fires immediately with current data, then on every change
+      onSnapshot(colRef, snapshot => {
+        const apps = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+        _applied.clear();
+        apps.forEach(a => _applied.add(a.url));
+        updateStatCards(apps);
+        window._hub.refreshApplied();
+        window.dispatchEvent(new CustomEvent('firestore:applications', { detail: apps }));
+      }, err => {
+        console.warn('[hub] onSnapshot error:', err.message);
+      });
 
     } catch (err) {
       console.warn('[auth-guard] Firestore unavailable — applied-job tracking disabled:', err.message);
@@ -204,7 +252,7 @@ if (!configured) {
         ?.addEventListener('click', e => { e.preventDefault(); doSignOut(); }, { once: true });
 
       // 3 ── Load Firestore data (non-blocking — never delays overlay removal) ───
-      loadFirestore(user.uid); // intentionally NOT awaited
+      loadFirestore(user, name); // intentionally NOT awaited
 
     } catch (err) {
       console.error('[auth-guard] Unexpected error during session setup:', err);

@@ -1,0 +1,229 @@
+/* ── Card container ────────────────────────────────────────────────────── */
+.smart-shortlist { padding: 20px 24px; }
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.smart-shortlist__header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  margin-bottom:   16px;
+}
+
+.smart-shortlist__title-group {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+}
+
+.smart-shortlist__header-actions {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+}
+
+/* ── AI badge ──────────────────────────────────────────────────────────── */
+.ai-badge {
+  display:      inline-flex;
+  align-items:  center;
+  gap:          3px;
+  padding:      2px 8px;
+  border-radius: 999px;
+  background:   linear-gradient(135deg, #6366f1, #8b5cf6);
+  color:        #fff;
+  font-size:    11px;
+  font-weight:  700;
+  letter-spacing: 0.04em;
+}
+.ai-badge .material-icons { font-size: 13px; }
+
+/* ── Priority badges ───────────────────────────────────────────────────── */
+.priority-badge {
+  display:      inline-flex;
+  align-items:  center;
+  gap:          3px;
+  padding:      2px 8px;
+  border-radius: 999px;
+  font-size:    11px;
+  font-weight:  700;
+  white-space:  nowrap;
+}
+.priority-badge .material-icons { font-size: 13px; }
+
+.priority--urgent { background: #fee2e2; color: #dc2626; }
+.priority--green  { background: #dcfce7; color: #16a34a; }
+.priority--blue   { background: #dbeafe; color: #2563eb; }
+.priority--amber  { background: #fef9c3; color: #b45309; }
+.priority--purple { background: #ede9fe; color: #7c3aed; }
+
+/* ── Score ring ────────────────────────────────────────────────────────── */
+.score-ring {
+  width:            36px;
+  height:           36px;
+  border-radius:    50%;
+  display:          flex;
+  align-items:      center;
+  justify-content:  center;
+  flex-shrink:      0;
+  font-size:        12px;
+  font-weight:      700;
+  border:           2px solid currentColor;
+}
+.score-ring__value { line-height: 1; }
+
+.ring--high  { color: #16a34a; background: #dcfce7; }
+.ring--mid   { color: #2563eb; background: #dbeafe; }
+.ring--low   { color: #b45309; background: #fef9c3; }
+
+/* ── Empty state ───────────────────────────────────────────────────────── */
+.smart-shortlist__empty {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  text-align:     center;
+  gap:            10px;
+  padding:        28px 16px;
+  color:          var(--text-secondary, #64748b);
+}
+.smart-shortlist__empty .material-icons {
+  font-size: 40px;
+  color:     var(--text-muted, #94a3b8);
+}
+.smart-shortlist__empty h4 {
+  margin:      0;
+  font-size:   15px;
+  font-weight: 600;
+  color:       var(--text-primary, #0f172a);
+}
+.smart-shortlist__empty p {
+  margin:    0;
+  font-size: 13px;
+  max-width: 280px;
+}
+
+/* ── Skeleton ──────────────────────────────────────────────────────────── */
+.smart-shortlist__skeletons { display: flex; flex-direction: column; gap: 10px; }
+.shortlist-skeleton {
+  height:        80px;
+  border-radius: 8px;
+  background:    var(--skeleton-bg, #f1f5f9);
+  animation:     sk-pulse 1.5s ease-in-out infinite;
+}
+@keyframes sk-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ── Error text ────────────────────────────────────────────────────────── */
+.shortlist-error {
+  font-size: 12px;
+  color:     var(--color-red, #dc2626);
+  margin:    0 0 4px;
+  text-align: center;
+}
+
+/* ── Job list ──────────────────────────────────────────────────────────── */
+.shortlist-list {
+  list-style: none;
+  margin:     0;
+  padding:    0;
+  display:    flex;
+  flex-direction: column;
+  gap:        10px;
+}
+
+.shortlist-item {
+  padding:       12px 14px;
+  border:        1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  display:       flex;
+  flex-direction: column;
+  gap:           6px;
+  transition:    box-shadow 0.15s;
+}
+.shortlist-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+
+.shortlist-item__top {
+  display:     flex;
+  gap:         10px;
+  align-items: flex-start;
+}
+
+.shortlist-item__logo-wrap { flex-shrink: 0; }
+.shortlist-item__logo {
+  width:         40px;
+  height:        40px;
+  object-fit:    contain;
+  border-radius: 8px;
+  border:        1px solid var(--border-color, #e2e8f0);
+  background:    var(--bg-page, #f8fafc);
+}
+.shortlist-item__logo-placeholder {
+  width:            40px;
+  height:           40px;
+  border-radius:    8px;
+  background:       rgba(var(--color-primary-rgb, 99 102 241), .1);
+  color:            var(--color-primary);
+  display:          flex;
+  align-items:      center;
+  justify-content:  center;
+  font-weight:      700;
+  font-size:        16px;
+}
+
+.shortlist-item__info {
+  flex:    1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap:     3px;
+}
+.shortlist-item__title-row {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+  flex-wrap:   wrap;
+}
+.shortlist-item__job-title {
+  font-size:     14px;
+  font-weight:   600;
+  color:         var(--text-primary, #0f172a);
+  line-height:   1.3;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  white-space:   nowrap;
+}
+.shortlist-item__company {
+  font-size: 12px;
+  color:     var(--text-secondary, #64748b);
+}
+.shortlist-item__remote {
+  color:       #16a34a;
+  font-weight: 500;
+}
+
+.shortlist-item__reason {
+  font-size:   12px;
+  color:       var(--text-secondary, #475569);
+  margin:      0;
+  line-height: 1.5;
+}
+
+/* Skill gaps */
+.shortlist-item__gaps {
+  display:     flex;
+  align-items: center;
+  gap:         4px;
+  font-size:   11px;
+  color:       var(--text-muted, #94a3b8);
+}
+.shortlist-item__gaps .material-icons { font-size: 13px; color: #f59e0b; }
+
+.shortlist-item__actions {
+  display:    flex;
+  gap:        8px;
+  margin-top: 2px;
+}
+
+/* Spinner */
+.shortlist-spin {
+  display:   inline-block;
+  animation: spin-icon 0.8s linear infinite;
+}
+@keyframes spin-icon { to { transform: rotate(360deg); } }

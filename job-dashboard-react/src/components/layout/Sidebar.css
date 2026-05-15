@@ -1,0 +1,179 @@
+/* ── Sidebar shell ─────────────────────────────────────────── */
+.sidebar {
+  position:        fixed;
+  top:             0;
+  left:            0;
+  width:           var(--sidebar-w);
+  height:          100vh;
+  background:      var(--bg-sidebar);
+  border-right:    1px solid var(--border-color);
+  display:         flex;
+  flex-direction:  column;
+  z-index:         100;
+  transition:      width var(--transition), transform var(--transition);
+  overflow:        hidden;
+}
+
+/* ── Collapsed (desktop) ───────────────────────────────────── */
+.sidebar--collapsed {
+  width: var(--sidebar-w-collapsed);
+}
+.sidebar--collapsed .sidebar__logo-text,
+.sidebar--collapsed .sidebar__nav-label,
+.sidebar--collapsed .sidebar__user-info,
+.sidebar--collapsed .sidebar__logout {
+  opacity:    0;
+  width:      0;
+  overflow:   hidden;
+  white-space: nowrap;
+}
+.sidebar--collapsed .sidebar__user {
+  justify-content: center;
+}
+
+/* ── Logo ──────────────────────────────────────────────────── */
+.sidebar__logo {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  padding:     20px 16px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+.sidebar__logo-icon {
+  width:           36px;
+  height:          36px;
+  background:      var(--color-primary);
+  border-radius:   8px;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+  color:           #fff;
+}
+.sidebar__logo-icon .material-icons { font-size: 20px; }
+.sidebar__logo-text {
+  font-size:   16px;
+  font-weight: 700;
+  color:       var(--text-primary);
+  transition:  opacity var(--transition), width var(--transition);
+  white-space: nowrap;
+}
+
+/* ── Nav ───────────────────────────────────────────────────── */
+.sidebar__nav { flex: 1; overflow-y: auto; padding: 12px 0; }
+.sidebar__nav-list { list-style: none; margin: 0; padding: 0 8px; display: flex; flex-direction: column; gap: 2px; }
+.sidebar__nav-item  { }
+
+.sidebar__nav-link {
+  display:      flex;
+  align-items:  center;
+  gap:          12px;
+  padding:      10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color:        var(--text-secondary);
+  font-size:    14px;
+  font-weight:  500;
+  transition:   background var(--transition), color var(--transition);
+  white-space:  nowrap;
+}
+.sidebar__nav-link:hover {
+  background: rgba(var(--color-primary-rgb), .06);
+  color:      var(--text-primary);
+}
+.sidebar__nav-link--active {
+  background: rgba(var(--color-primary-rgb), .1);
+  color:      var(--color-primary);
+}
+
+.sidebar__nav-icon-wrap {
+  width:           32px;
+  height:          32px;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+}
+.sidebar__nav-icon-wrap .material-icons { font-size: 20px; }
+.sidebar__nav-label { transition: opacity var(--transition); }
+
+/* ── Footer ────────────────────────────────────────────────── */
+.sidebar__footer {
+  padding:       8px 8px 12px;
+  border-top:    1px solid var(--border-color);
+  display:       flex;
+  flex-direction: column;
+  gap:           2px;
+}
+
+.sidebar__user {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  padding:     10px 12px;
+  margin-top:  4px;
+  border-radius: 8px;
+  background:  rgba(var(--color-primary-rgb), .04);
+  overflow:    hidden;
+}
+.sidebar__avatar {
+  width:           34px;
+  height:          34px;
+  border-radius:   50%;
+  background:      var(--color-primary);
+  color:           #fff;
+  font-size:       13px;
+  font-weight:     700;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+}
+.sidebar__user-info {
+  flex:       1;
+  min-width:  0;
+  transition: opacity var(--transition), width var(--transition);
+}
+.sidebar__user-name {
+  display:     block;
+  font-size:   13px;
+  font-weight: 600;
+  color:       var(--text-primary);
+  white-space: nowrap;
+  overflow:    hidden;
+  text-overflow: ellipsis;
+}
+.sidebar__user-email {
+  display:     block;
+  font-size:   11px;
+  color:       var(--text-secondary);
+  white-space: nowrap;
+  overflow:    hidden;
+  text-overflow: ellipsis;
+}
+.sidebar__logout {
+  background: none;
+  border:     none;
+  cursor:     pointer;
+  color:      var(--text-secondary);
+  padding:    4px;
+  border-radius: 6px;
+  display:    flex;
+  align-items: center;
+  transition: color var(--transition), background var(--transition);
+  flex-shrink: 0;
+}
+.sidebar__logout:hover { color: var(--color-red); background: rgba(239,68,68,.08); }
+.sidebar__logout .material-icons { font-size: 18px; }
+
+/* ── Mobile overlay ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar--open {
+    transform: translateX(0);
+  }
+}

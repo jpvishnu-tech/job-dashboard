@@ -964,10 +964,10 @@ body {
    STAT CARDS
    ============================================================ */
 
-/* 4-column grid — collapses to 2 at tablet, 1 at mobile */
+/* 5-column grid — collapses to 3 → 2 → 1 at narrower viewports */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
 }
 
@@ -2044,7 +2044,7 @@ mark.search-mark {
 
 @media (max-width: 1024px) {
   .content__grid  { grid-template-columns: 1fr; }
-  .stats-grid     { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid     { grid-template-columns: repeat(3, 1fr); }
   .navbar__search { max-width: 320px; }
 
   .jobs-search__input       { width: 180px; }
@@ -2082,6 +2082,7 @@ mark.search-mark {
 
   /* 2-column stat grid on tablet */
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-grid { grid-template-columns: 1fr; }
 
   /* Navbar: hide user name/role text and keyboard shortcut badge */
   .navbar__user-info  { display: none; }
@@ -2861,4 +2862,885 @@ mark.search-mark {
 
 @media (max-width: 480px) {
   .resume-preview__frame { height: 360px; }
+}
+
+
+/* ============================================================
+   APPLICATIONS SECTION
+   ============================================================ */
+
+/* ---- Filter tabs ---- */
+.apps-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.apps-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.apps-filter:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.apps-filter--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.apps-filter--active:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: #fff;
+}
+
+.apps-filter__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(0 0 0 / 0.12);
+}
+
+.apps-filter--active .apps-filter__count {
+  background: rgba(255 255 255 / 0.25);
+}
+
+/* ---- Status badge ---- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.status-badge:hover { opacity: 0.85; }
+
+.status-badge--pending   { background: #fef3c7; color: #92400e; }
+.status-badge--interview { background: #dbeafe; color: #1e40af; }
+.status-badge--offer     { background: #dcfce7; color: #166534; }
+.status-badge--rejected  { background: #fee2e2; color: #991b1b; }
+
+[data-theme="dark"] .status-badge--pending   { background: #451a03; color: #fde68a; }
+[data-theme="dark"] .status-badge--interview { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .status-badge--offer     { background: #14532d; color: #86efac; }
+[data-theme="dark"] .status-badge--rejected  { background: #450a0a; color: #fca5a5; }
+
+/* ---- Status cell + picker popup ---- */
+.status-cell {
+  position: relative;
+  display: inline-block;
+}
+
+.status-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 130px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0 0 0 / 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-picker__opt {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background 0.12s;
+}
+
+.status-picker__opt:hover { background: var(--color-border); }
+
+.status-picker__opt--active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.status-picker__opt--active:hover { background: var(--color-primary-dark); }
+
+/* ---- App actions ---- */
+.app-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.app-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.app-action-btn .material-icons { font-size: 16px; }
+
+.app-action-btn--delete:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .app-action-btn--delete:hover {
+  background: #450a0a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* ---- Company cell ---- */
+.app-company {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-company__name { font-weight: 500; }
+
+.app-company__link {
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.12s;
+}
+
+.app-company__link:hover { color: var(--color-primary); }
+
+/* ---- Empty state ---- */
+.applications-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.applications-empty__icon {
+  font-size: 48px;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.applications-empty__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 8px;
+}
+
+.applications-empty__sub {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 320px;
+}
+
+
+/* ============================================================
+   STAT CARD — PURPLE  (Offers)
+   ============================================================ */
+
+.stat-card--purple {
+  border-top-color: var(--color-purple);
+  color: var(--color-purple);
+}
+.stat-card--purple .stat-card__icon-wrap { background: #f3e8ff; color: var(--color-purple); }
+.stat-card--purple .stat-card__value     { color: var(--color-purple); }
+.stat-card--purple .stat-card__bar       { background: var(--color-purple); }
+[data-theme="dark"] .stat-card--purple .stat-card__icon-wrap { background: #3b0764; }
+
+
+/* ============================================================
+   ANALYTICS / CHARTS SECTION
+   ============================================================ */
+
+.charts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Two-column chart grid: wide bar chart left, compact donut right */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Individual chart card ---- */
+.chart-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chart-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.chart-card__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.chart-card__subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 3px 0 0;
+}
+
+/* Canvas container — fixed height so Chart.js can size itself */
+.chart-card__body {
+  position: relative;
+  height: 240px;
+}
+
+.chart-card__body--donut {
+  height: 280px;
+}
+
+/* ---- Skeleton loaders ---- */
+
+/* Bar chart skeleton: 6 shimmer columns of varying heights */
+.chart-skeleton {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 0 4px 24px;
+}
+
+.chart-skeleton__bar {
+  flex: 1;
+  height: var(--h, 50%);
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    color-mix(in srgb, var(--color-border) 50%, transparent) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Stagger shimmer so bars don't pulse in unison */
+.chart-skeleton__bar:nth-child(2) { animation-delay: .1s; }
+.chart-skeleton__bar:nth-child(3) { animation-delay: .2s; }
+.chart-skeleton__bar:nth-child(4) { animation-delay: .3s; }
+.chart-skeleton__bar:nth-child(5) { animation-delay: .4s; }
+.chart-skeleton__bar:nth-child(6) { animation-delay: .5s; }
+
+@keyframes sk-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Donut skeleton: single pulsing ring */
+.chart-skeleton--circle {
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.chart-skeleton__circle {
+  width: 164px;
+  height: 164px;
+  border-radius: 50%;
+  background: conic-gradient(
+    rgba(99,102,241,.18)  0deg 120deg,
+    rgba(34,197,94,.18)  120deg 180deg,
+    rgba(239,68,68,.18)  180deg 270deg,
+    rgba(251,191,36,.18) 270deg 360deg
+  );
+  animation: sk-pulse 1.6s ease-in-out infinite;
+  /* Punched-out centre to mimic a doughnut */
+  -webkit-mask: radial-gradient(farthest-side, transparent 62%, #000 63%);
+          mask: radial-gradient(farthest-side, transparent 62%, #000 63%);
+}
+
+@keyframes sk-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+/* ---- Charts empty state (no data yet) ---- */
+.chart-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+}
+
+.chart-empty .material-icons { font-size: 36px; opacity: 0.4; }
+
+.chart-empty__text {
+  font-size: 0.8125rem;
+  text-align: center;
+  max-width: 180px;
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   INSIGHT METRIC TILES
+   ============================================================ */
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .insights-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .insights-grid { grid-template-columns: 1fr; }
+}
+
+.insight-card {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.insight-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.insight-card__icon {
+  font-size: 24px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.insight-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.insight-card__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.insight-card__label {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   AI RESUME ANALYSIS SECTION
+   ============================================================ */
+
+/* Spin keyframe (reused by loader icons) */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Section wrapper ─────────────────────────────────────────── */
+
+.ai-resume-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* ── Entry cards (Analyze / Job Match) ───────────────────────── */
+
+.ai-card-outer {
+  padding: 24px;
+}
+
+.ai-card-outer__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ai-card-outer__icon-wrap {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(99,102,241,0.10);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-card-outer__icon-wrap .material-icons { font-size: 24px; }
+
+.ai-card-outer__icon-wrap--green {
+  background: rgba(34,197,94,0.10);
+  color: var(--color-green);
+}
+
+[data-theme="dark"] .ai-card-outer__icon-wrap {
+  background: rgba(129,140,248,0.15);
+}
+
+[data-theme="dark"] .ai-card-outer__icon-wrap--green {
+  background: rgba(34,197,94,0.12);
+}
+
+.ai-card-outer__text { flex: 1; min-width: 0; }
+
+.ai-card-outer__title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.ai-card-outer__sub {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.ai-card-outer__footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+/* ── Job-description textarea ────────────────────────────────── */
+
+.ai-job-textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+  display: block;
+}
+
+.ai-job-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+.ai-job-textarea::placeholder { color: var(--color-text-muted); }
+
+/* ── Loading indicator ───────────────────────────────────────── */
+
+.ai-loader {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.ai-loader .material-icons {
+  font-size: 17px;
+  animation: spin 1s linear infinite;
+}
+
+/* ── Inline error beneath buttons ────────────────────────────── */
+
+.ai-inline-error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.20);
+  color: var(--color-red);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+/* ── Result panel cards ──────────────────────────────────────── */
+
+#aiAnalysisResult,
+#aiMatchResult {
+  padding: 24px;
+}
+
+/* ── Result panel header row ─────────────────────────────────── */
+
+.ai-result-header {
+  margin-bottom: 20px;
+}
+
+.ai-result-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.ai-result-title .material-icons {
+  font-size: 20px;
+  color: var(--color-primary);
+}
+
+/* ── Score ring (SVG circular progress) ──────────────────────── */
+
+.ai-score-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.ai-score-ring {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ai-score-ring svg {
+  width: 118px;
+  height: 118px;
+}
+
+.ai-score-ring__bg {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 8;
+}
+
+.ai-score-ring__fill {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 251.2;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+.ai-score-ring__inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-score-ring__value {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.ai-score-ring__lbl {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
+  text-align: center;
+}
+
+/* ── Score metadata (grade + feedback + sub-scores) ──────────── */
+
+.ai-score-meta { flex: 1; min-width: 0; }
+
+.ai-score-grade {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.ai-score-feedback {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 0 0 14px;
+}
+
+.ai-sub-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ai-sub-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-sub-score__label {
+  width: 76px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.ai-sub-score__bar-wrap {
+  flex: 1;
+  height: 5px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ai-sub-score__bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+.ai-sub-score__val {
+  width: 28px;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* ── Thin horizontal rule between score and content ──────────── */
+
+.ai-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0 0 18px;
+}
+
+/* ── 2-column card grid (Strengths / Weaknesses, keywords) ───── */
+
+.ai-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* ── Inner info cards ────────────────────────────────────────── */
+
+.ai-inner-card {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.ai-inner-card--green { border-left: 3px solid var(--color-green); }
+.ai-inner-card--red   { border-left: 3px solid var(--color-red);   }
+.ai-inner-card--amber { border-left: 3px solid var(--color-amber); }
+
+.ai-inner-card__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 10px;
+}
+
+.ai-inner-card__title .material-icons { font-size: 15px; }
+
+.ai-inner-card--green .ai-inner-card__title .material-icons { color: var(--color-green); }
+.ai-inner-card--red   .ai-inner-card__title .material-icons { color: var(--color-red);   }
+.ai-inner-card--amber .ai-inner-card__title .material-icons { color: var(--color-amber); }
+
+/* ── Lists inside inner cards ────────────────────────────────── */
+
+.ai-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ai-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.ai-list__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ai-inner-card--green .ai-list__icon { color: var(--color-green); }
+.ai-inner-card--red   .ai-list__icon { color: var(--color-red);   }
+.ai-inner-card--amber .ai-list__icon { color: var(--color-amber); }
+
+.ai-list__empty {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── Keyword tag cloud ───────────────────────────────────────── */
+
+.ai-keyword-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Tag chips (skills, keywords, missing elements) ──────────── */
+
+.ai-tags-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.ai-tags-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ai-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  background: rgba(99,102,241,0.09);
+  color: var(--color-primary);
+  border: 1px solid rgba(99,102,241,0.18);
+}
+
+.ai-tag--miss {
+  background: rgba(239,68,68,0.07);
+  color: var(--color-red);
+  border-color: rgba(239,68,68,0.18);
+}
+
+.ai-tag--skill {
+  background: rgba(34,197,94,0.07);
+  color: var(--color-green);
+  border-color: rgba(34,197,94,0.18);
+}
+
+/* ── Responsive: collapse 2-col grid + stack score row ───────── */
+
+@media (max-width: 640px) {
+  .ai-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-score-row {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .ai-score-meta { width: 100%; }
+
+  .ai-sub-score__label { width: 64px; }
+}
+
+@media (max-width: 480px) {
+  .ai-card-outer { padding: 16px; }
+  #aiAnalysisResult,
+  #aiMatchResult   { padding: 16px; }
 }

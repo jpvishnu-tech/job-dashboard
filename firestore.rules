@@ -1,0 +1,67 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Reusable helpers ──────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks the admins/{uid} document without returning its data.
+    // This is the only way to gate admin access on the client:
+    // the collection is not writable from client SDKs (allow write: if false),
+    // so no user can self-promote.
+    function isAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Admins collection ─────────────────────────────────────
+    // Each admin can only read their own document — they can't enumerate
+    // other admins, and no client can create/modify admin documents.
+    // Admins are created manually in the Firebase Console (or Admin SDK).
+    match /admins/{adminId} {
+      allow read:  if isOwner(adminId);
+      allow write: if false;
+    }
+
+    // ── Jobs collection ───────────────────────────────────────
+    // All signed-in users can read job listings.
+    // Only admins can create, update, or delete jobs.
+    match /jobs/{jobId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── User data ─────────────────────────────────────────────
+    // Users own their data (profile, applications, resume).
+    // Admins can read all user data (needed for the admin dashboard).
+    // Admins intentionally cannot write user data — only the user can.
+    match /users/{userId}/{document=**} {
+      allow read:  if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId);
+    }
+
+    // ── Collection group: applications ────────────────────────
+    // Required for collectionGroup('applications') queries in admin.
+    // The /users/{userId}/{document=**} rule already covers per-user
+    // reads, but Firestore requires an explicit collection-group rule
+    // for cross-user collectionGroup queries.
+    match /{path=**}/applications/{appId} {
+      allow read: if isAdmin();
+    }
+
+    // ── Collection group: profile ─────────────────────────────
+    // Required for collectionGroup('profile') to list all user profiles.
+    match /{path=**}/profile/{docId} {
+      allow read: if isAdmin();
+    }
+
+    // Everything else is denied by default.
+  }
+}

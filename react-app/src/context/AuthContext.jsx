@@ -2,14 +2,7 @@ import {
   createContext, useContext, useState,
   useEffect, useCallback,
 } from 'react';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { auth, isFirebaseConfigured } from '../firebase-config';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { api, ApiError, getToken, setToken } from '../services/api';
 
 /**
@@ -17,36 +10,33 @@ import { api, ApiError, getToken, setToken } from '../services/api';
  * ─────────────────────────────────────────────────────────────
  * Supports two auth modes — selected automatically:
  *
- *   Firebase mode  (VITE_FIREBASE_API_KEY is set)
- *     • Firebase email/password handles signup, login, logout.
- *     • onAuthStateChanged restores sessions across page reloads
- *       using IndexedDB — no localStorage token needed.
- *     • On every Firebase auth event the app exchanges the Firebase
- *       ID token for a backend JWT used for all API data calls.
+ *   Supabase mode  (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set)
+ *     • Supabase email/password handles signup, login, logout.
+ *     • onAuthStateChange restores sessions across page reloads.
+ *     • On every Supabase auth event the app exchanges the Supabase
+ *       access token for a backend JWT used for all API data calls.
  *
- *   JWT-only mode  (Firebase not configured)
+ *   JWT-only mode  (Supabase not configured)
  *     • Falls back to the original backend-JWT flow.
- *     • session restored from localStorage on mount via /api/auth/me.
+ *     • Session restored from localStorage on mount via /api/auth/me.
  *
  * Consumer API is identical in both modes — components never need
  * to know which mode is active.
  */
 
-// ── Firebase error → friendly message ─────────────────────────
-function mapFirebaseError(err) {
-  const map = {
-    'auth/user-not-found':         'No account found with this email.',
-    'auth/wrong-password':         'Incorrect password.',
-    'auth/invalid-credential':     'Incorrect email or password.',
-    'auth/email-already-in-use':   'An account with this email already exists.',
-    'auth/weak-password':          'Password must be at least 6 characters.',
-    'auth/invalid-email':          'Enter a valid email address.',
-    'auth/too-many-requests':      'Too many attempts — please try again later.',
-    'auth/network-request-failed': 'Network error — check your connection.',
-    'auth/user-disabled':          'This account has been disabled.',
-  };
-  const msg = map[err.code] ?? err.message ?? 'Authentication failed.';
-  return new ApiError(msg, err.code === 'auth/wrong-password' ? 401 : 400);
+// ── Supabase error → friendly message ─────────────────────────
+function mapSupabaseError(err) {
+  const msg = (err.message ?? '').toLowerCase();
+  if (msg.includes('invalid login credentials'))        return 'Incorrect email or password.';
+  if (msg.includes('email not confirmed'))              return 'Please verify your email before signing in.';
+  if (msg.includes('user already registered'))          return 'An account with this email already exists.';
+  if (msg.includes('password should be at least'))      return 'Password must be at least 6 characters.';
+  if (msg.includes('unable to validate email address')) return 'Enter a valid email address.';
+  if (msg.includes('email rate limit exceeded'))        return 'Too many attempts — please try again later.';
+  if (msg.includes('network'))                          return 'Network error — check your connection.';
+  if (msg.includes('user not found'))                   return 'No account found with this email.';
+  if (msg.includes('disabled'))                         return 'This account has been disabled.';
+  return err.message ?? 'Authentication failed.';
 }
 
 // ── Context ────────────────────────────────────────────────────
@@ -58,6 +48,7 @@ const AuthContext = createContext({
   register:                async () => {},
   logout:                  async () => {},
   signOut:                 async () => {},
+  sendPasswordReset:       async () => {},
   saveApplication:         async () => {},
   updateApplicationStatus: async () => {},
 });
@@ -72,36 +63,36 @@ export function AuthProvider({ children }) {
   // ── Session restore ───────────────────────────────────────────────────────────
 
   useEffect(() => {
-    // ── Firebase mode ─────────────────────────────────────────
-    if (isFirebaseConfigured && auth) {
-      // onAuthStateChanged fires immediately with the persisted user (if any),
-      // then again whenever auth state changes.  It is the single source of
-      // truth for session state in Firebase mode.
-      const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-        if (fbUser) {
-          try {
-            // Exchange Firebase ID token for a backend JWT
-            const idToken   = await fbUser.getIdToken();
-            const { token, user: u } = await api.post('/auth/firebase', { idToken });
-            setToken(token);
-            setUser(u);
-            await loadApplications();
-          } catch {
-            // Token invalid or backend unreachable — sign out cleanly
-            await firebaseSignOut(auth).catch(() => {});
-            setToken(null);
-            setUser(null);
-            setApplications([]);
-          }
-        } else {
-          setToken(null);
-          setUser(null);
-          setApplications([]);
-        }
-        setLoading(false);
-      });
+    // ── Supabase mode ─────────────────────────────────────────
+    if (isSupabaseConfigured) {
+      // Only handle INITIAL_SESSION (page-load restore).
+      // Login/register/logout exchange tokens explicitly in their handlers,
+      // which avoids a double-exchange on every sign-in event.
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event !== 'INITIAL_SESSION') return;
 
-      return unsubscribe; // cleaned up on unmount
+          if (session?.access_token) {
+            try {
+              const { token, user: u } = await api.post('/auth/supabase', {
+                access_token: session.access_token,
+              });
+              setToken(token);
+              setUser(u);
+              await loadApplications();
+            } catch {
+              await supabase.auth.signOut().catch(() => {});
+              setToken(null);
+              setUser(null);
+              setApplications([]);
+            }
+          }
+
+          setLoading(false);
+        }
+      );
+
+      return () => subscription.unsubscribe();
     }
 
     // ── JWT-only fallback ─────────────────────────────────────
@@ -119,9 +110,10 @@ export function AuthProvider({ children }) {
   // ── Global 401 handler ────────────────────────────────────────────────────────
   useEffect(() => {
     async function handleForcedLogout() {
-      if (isFirebaseConfigured && auth) {
-        await firebaseSignOut(auth).catch(() => {});
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut().catch(() => {});
       }
+      setToken(null);
       setUser(null);
       setApplications([]);
     }
@@ -143,18 +135,16 @@ export function AuthProvider({ children }) {
   // ── Auth actions ──────────────────────────────────────────────────────────────
 
   const login = useCallback(async (email, password) => {
-    // Firebase mode
-    if (isFirebaseConfigured && auth) {
-      try {
-        const cred    = await signInWithEmailAndPassword(auth, email, password);
-        const idToken = await cred.user.getIdToken();
-        const { token, user: u } = await api.post('/auth/firebase', { idToken });
-        setToken(token);
-        setUser(u);
-        await loadApplications();
-      } catch (err) {
-        throw err.code ? mapFirebaseError(err) : err;
-      }
+    // Supabase mode
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new ApiError(mapSupabaseError(error), 401);
+      const { token, user: u } = await api.post('/auth/supabase', {
+        access_token: data.session.access_token,
+      });
+      setToken(token);
+      setUser(u);
+      await loadApplications();
       return;
     }
 
@@ -166,20 +156,28 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async (name, email, password) => {
-    // Firebase mode
-    if (isFirebaseConfigured && auth) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        // Persist display name on the Firebase user profile
-        await updateProfile(cred.user, { displayName: name });
-        // Force token refresh so displayName is included in the new ID token
-        const idToken = await cred.user.getIdToken(true);
-        const { token, user: u } = await api.post('/auth/firebase', { idToken });
-        setToken(token);
-        setUser(u);
-      } catch (err) {
-        throw err.code ? mapFirebaseError(err) : err;
+    // Supabase mode
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
+      if (error) throw new ApiError(mapSupabaseError(error), 400);
+
+      // Email confirmation required — no session yet
+      if (!data.session) {
+        throw new ApiError(
+          'Account created! Please check your email to confirm your address before signing in.',
+          202
+        );
       }
+
+      const { token, user: u } = await api.post('/auth/supabase', {
+        access_token: data.session.access_token,
+      });
+      setToken(token);
+      setUser(u);
       return;
     }
 
@@ -190,14 +188,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    if (isFirebaseConfigured && auth) {
-      await firebaseSignOut(auth).catch(() => {});
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut().catch(() => {});
     } else {
       await api.post('/auth/logout').catch(() => {});
     }
     setToken(null);
     setUser(null);
     setApplications([]);
+  }, []);
+
+  const sendPasswordReset = useCallback(async (email) => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw new ApiError(mapSupabaseError(error), 400);
+    } else {
+      await api.post('/auth/forgot-password', { email });
+    }
   }, []);
 
   // ── Application CRUD ──────────────────────────────────────────────────────────
@@ -260,6 +269,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, loading, applications,
       login, register, logout, signOut,
+      sendPasswordReset,
       saveApplication, updateApplicationStatus,
     }}>
       {children}

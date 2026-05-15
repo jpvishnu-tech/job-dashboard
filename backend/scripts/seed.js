@@ -12,6 +12,7 @@ import bcrypt    from 'bcryptjs';
 import User        from '../models/User.js';
 import Job         from '../models/Job.js';
 import Application from '../models/Application.js';
+import Resume      from '../models/Resume.js';
 
 const CLEAR = process.argv.includes('--clear');
 
@@ -263,8 +264,9 @@ async function seed() {
       User.deleteMany({}),
       Job.deleteMany({}),
       Application.deleteMany({}),
+      Resume.deleteMany({}),
     ]);
-    console.log(y('  ✓ Cleared users, jobs, and applications'));
+    console.log(y('  ✓ Cleared users, jobs, applications, and resumes'));
   }
 
   // ── Users ──────────────────────────────────────────────────
@@ -318,6 +320,38 @@ async function seed() {
     },
   ]);
   console.log(g(`  ✓ Created ${applications.length} applications for ${demoUser.name}`));
+
+  // ── Resume (for the demo user) ─────────────────────────────
+  await Resume.create({
+    user:         demoUser._id,
+    url:          'https://example.com/demo-resume.pdf',
+    fileName:     'Alex_Johnson_Resume.pdf',
+    fileSize:     142000,
+    storagePath:  `resumes/${demoUser._id}/Alex_Johnson_Resume.pdf`,
+    mimeType:     'application/pdf',
+    lastAtsScore: 82,
+    uploadedAt:   daysAgo(10),
+    analyses: [
+      {
+        type:            'analyze',
+        atsScore:        82,
+        strengths:       ['Strong React and TypeScript experience', 'Clear, quantified achievements', 'Modern tech stack alignment'],
+        weaknesses:      ['Missing system design examples', 'No open source contributions listed'],
+        recommendations: ['Add a GitHub link with active projects', 'Include a brief summary section at the top', 'Quantify team size / scope of projects'],
+        createdAt:       daysAgo(9),
+      },
+      {
+        type:            'match',
+        matchScore:      78,
+        matchingKeywords: ['React', 'TypeScript', 'Node.js', 'REST API'],
+        missingKeywords:  ['GraphQL', 'Docker', 'Kubernetes'],
+        jobTitle:        'Senior Frontend Engineer',
+        jobCompany:      'Stripe',
+        createdAt:       daysAgo(8),
+      },
+    ],
+  });
+  console.log(g(`  ✓ Created resume with 2 AI analysis entries for ${demoUser.name}`));
 
   // ── Summary ────────────────────────────────────────────────
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);

@@ -1,18 +1,29 @@
-/**
- * notFound — catches requests that matched no route and creates a 404 error
- * for the global errorHandler below to format and send.
- */
+import { ApiError } from '../utils/ApiError.js';
+
 export function notFound(req, res, next) {
-  const err = Object.assign(new Error(`Not found — ${req.method} ${req.originalUrl}`), { status: 404 });
-  next(err);
+  next(ApiError.notFound(`${req.method} ${req.originalUrl}`));
 }
 
 /**
  * errorHandler — central error middleware.
- * Normalises Mongoose validation errors, duplicate-key errors, and JWT errors
- * into consistent JSON so every client gets the same response shape.
+ * Priority order:
+ *   1. ApiError (thrown by services / controllers)
+ *   2. Mongoose ValidationError → 422
+ *   3. Mongoose duplicate key   → 409
+ *   4. Mongoose CastError       → 404
+ *   5. JWT errors               → 401
+ *   6. Everything else          → 500
  */
 export function errorHandler(err, req, res, _next) {
+  // ── ApiError ──────────────────────────────────────────────
+  if (err instanceof ApiError) {
+    return res.status(err.status).json({
+      success: false,
+      message: err.message,
+      ...(err.errors?.length && { errors: err.errors }),
+    });
+  }
+
   let status  = err.status || err.statusCode || 500;
   let message = err.message || 'Internal server error';
   let errors;

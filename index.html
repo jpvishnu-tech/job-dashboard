@@ -65,14 +65,14 @@
           </li>
 
           <!-- Applications: track submitted applications -->
-          <li class="sidebar__nav-item" data-section="dashboard">
+          <li class="sidebar__nav-item" data-section="applications">
             <a href="#" class="sidebar__nav-link" data-tooltip="Applications">
               <span class="sidebar__nav-icon-wrap">
                 <span class="material-icons">assignment</span>
               </span>
               <span class="sidebar__nav-label">Applications</span>
-              <!-- Badge shows pending-action count; hidden when sidebar collapses -->
-              <span class="badge">5</span>
+              <!-- Badge shows total application count; hidden when zero -->
+              <span class="badge" id="appsBadge" hidden>0</span>
             </a>
           </li>
 
@@ -93,6 +93,16 @@
                 <span class="material-icons">tune</span>
               </span>
               <span class="sidebar__nav-label">Settings</span>
+            </a>
+          </li>
+
+          <!-- Admin: only revealed by auth-guard.js for admin users -->
+          <li class="sidebar__nav-item" id="adminNavItem" hidden>
+            <a href="admin.html" class="sidebar__nav-link" data-tooltip="Admin Panel">
+              <span class="sidebar__nav-icon-wrap">
+                <span class="material-icons">admin_panel_settings</span>
+              </span>
+              <span class="sidebar__nav-label">Admin</span>
             </a>
           </li>
         </ul>
@@ -351,30 +361,26 @@
         </div>
 
         <!-- ===== STAT CARDS ===== -->
-        <!-- Four KPI tiles — numbers count up on load, bars animate in -->
+        <!-- Five KPI tiles — numbers updated live from Firestore -->
         <section class="stats-grid">
           <!-- Jobs Applied -->
           <div class="stat-card stat-card--indigo">
-            <!-- Top row: icon + trend badge -->
             <div class="stat-card__header">
               <div class="stat-card__icon-wrap">
                 <span class="material-icons">send</span>
               </div>
-              <span class="stat-card__badge stat-card__badge--up">
-                <span class="material-icons">arrow_upward</span>12%
+              <span class="stat-card__badge stat-card__badge--up" id="statTotalBadge">
+                <span class="material-icons">arrow_upward</span>0
               </span>
             </div>
-            <!-- Middle row: animated count + label -->
             <div class="stat-card__body">
-              <span class="stat-card__value" data-target="48">0</span>
+              <span class="stat-card__value" data-target="0">0</span>
               <span class="stat-card__label">Jobs Applied</span>
             </div>
-            <!-- Bottom row: context text + progress bar -->
             <div class="stat-card__footer">
-              <span class="stat-card__meta">+5 from last month</span>
+              <span class="stat-card__meta" id="statTotalMeta">— vs last month</span>
               <div class="stat-card__bar-wrap">
-                <!-- width driven to --bar-pct by JS after page load -->
-                <div class="stat-card__bar" style="--bar-pct: 62%"></div>
+                <div class="stat-card__bar" style="--bar-pct: 0%"></div>
               </div>
             </div>
           </div>
@@ -385,18 +391,18 @@
               <div class="stat-card__icon-wrap">
                 <span class="material-icons">event_available</span>
               </div>
-              <span class="stat-card__badge stat-card__badge--up">
-                <span class="material-icons">arrow_upward</span>8%
+              <span class="stat-card__badge stat-card__badge--up" id="statInterviewsBadge">
+                <span class="material-icons">arrow_upward</span>0%
               </span>
             </div>
             <div class="stat-card__body">
-              <span class="stat-card__value" data-target="6">0</span>
+              <span class="stat-card__value" data-target="0">0</span>
               <span class="stat-card__label">Interviews</span>
             </div>
             <div class="stat-card__footer">
-              <span class="stat-card__meta">12.5% interview rate</span>
+              <span class="stat-card__meta" id="statInterviewsMeta">0% interview rate</span>
               <div class="stat-card__bar-wrap">
-                <div class="stat-card__bar" style="--bar-pct: 13%"></div>
+                <div class="stat-card__bar" style="--bar-pct: 0%"></div>
               </div>
             </div>
           </div>
@@ -407,18 +413,18 @@
               <div class="stat-card__icon-wrap">
                 <span class="material-icons">hourglass_top</span>
               </div>
-              <span class="stat-card__badge stat-card__badge--up">
-                <span class="material-icons">arrow_upward</span>5%
+              <span class="stat-card__badge stat-card__badge--up" id="statPendingBadge">
+                <span class="material-icons">arrow_upward</span>0%
               </span>
             </div>
             <div class="stat-card__body">
-              <span class="stat-card__value" data-target="14">0</span>
+              <span class="stat-card__value" data-target="0">0</span>
               <span class="stat-card__label">Pending</span>
             </div>
             <div class="stat-card__footer">
-              <span class="stat-card__meta">29% awaiting response</span>
+              <span class="stat-card__meta" id="statPendingMeta">0% awaiting response</span>
               <div class="stat-card__bar-wrap">
-                <div class="stat-card__bar" style="--bar-pct: 29%"></div>
+                <div class="stat-card__bar" style="--bar-pct: 0%"></div>
               </div>
             </div>
           </div>
@@ -429,22 +435,122 @@
               <div class="stat-card__icon-wrap">
                 <span class="material-icons">cancel</span>
               </div>
-              <!-- Down badge: rejection rate falling is a positive signal -->
-              <span class="stat-card__badge stat-card__badge--down">
-                <span class="material-icons">arrow_downward</span>3%
+              <span class="stat-card__badge stat-card__badge--down" id="statRejectedBadge">
+                <span class="material-icons">arrow_downward</span>0%
               </span>
             </div>
             <div class="stat-card__body">
-              <span class="stat-card__value" data-target="9">0</span>
+              <span class="stat-card__value" data-target="0">0</span>
               <span class="stat-card__label">Rejected</span>
             </div>
             <div class="stat-card__footer">
-              <span class="stat-card__meta">19% rejection rate</span>
+              <span class="stat-card__meta" id="statRejectedMeta">0% rejection rate</span>
               <div class="stat-card__bar-wrap">
-                <div class="stat-card__bar" style="--bar-pct: 19%"></div>
+                <div class="stat-card__bar" style="--bar-pct: 0%"></div>
               </div>
             </div>
           </div>
+
+          <!-- Offers -->
+          <div class="stat-card stat-card--purple">
+            <div class="stat-card__header">
+              <div class="stat-card__icon-wrap">
+                <span class="material-icons">workspace_premium</span>
+              </div>
+              <span class="stat-card__badge stat-card__badge--up" id="statOffersBadge">
+                <span class="material-icons">arrow_upward</span>0%
+              </span>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__value" data-target="0">0</span>
+              <span class="stat-card__label">Offers</span>
+            </div>
+            <div class="stat-card__footer">
+              <span class="stat-card__meta" id="statOffersMeta">0% offer rate</span>
+              <div class="stat-card__bar-wrap">
+                <div class="stat-card__bar" style="--bar-pct: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== ANALYTICS CHARTS ===== -->
+        <section class="charts-section" id="chartsSection">
+
+          <!-- Row 1: bar chart (left) + doughnut (right) -->
+          <div class="charts-grid">
+
+            <!-- Monthly trend: stacked bar -->
+            <div class="card chart-card">
+              <div class="chart-card__header">
+                <div>
+                  <h3 class="chart-card__title">Applications Over Time</h3>
+                  <p class="chart-card__subtitle">Stacked by status · Last 6 months</p>
+                </div>
+              </div>
+              <div class="chart-card__body">
+                <!-- Shimmer skeleton shown until Firestore data arrives -->
+                <div class="chart-skeleton" id="monthlyChartSkeleton" aria-hidden="true">
+                  <div class="chart-skeleton__bar" style="--h:45%"></div>
+                  <div class="chart-skeleton__bar" style="--h:70%"></div>
+                  <div class="chart-skeleton__bar" style="--h:55%"></div>
+                  <div class="chart-skeleton__bar" style="--h:85%"></div>
+                  <div class="chart-skeleton__bar" style="--h:60%"></div>
+                  <div class="chart-skeleton__bar" style="--h:75%"></div>
+                </div>
+                <canvas id="monthlyChart" hidden aria-label="Monthly applications bar chart"></canvas>
+              </div>
+            </div>
+
+            <!-- Status distribution: doughnut -->
+            <div class="card chart-card chart-card--sm">
+              <div class="chart-card__header">
+                <div>
+                  <h3 class="chart-card__title">Status Distribution</h3>
+                  <p class="chart-card__subtitle">All time · All applications</p>
+                </div>
+              </div>
+              <div class="chart-card__body chart-card__body--donut">
+                <div class="chart-skeleton chart-skeleton--circle" id="statusChartSkeleton" aria-hidden="true">
+                  <div class="chart-skeleton__circle"></div>
+                </div>
+                <canvas id="statusChart" hidden aria-label="Application status doughnut chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: four insight metric tiles -->
+          <div class="insights-grid">
+            <div class="insight-card">
+              <span class="material-icons insight-card__icon">trending_up</span>
+              <div class="insight-card__body">
+                <span class="insight-card__value" id="insightInterviewRate">—</span>
+                <span class="insight-card__label">Interview Rate</span>
+              </div>
+            </div>
+            <div class="insight-card">
+              <span class="material-icons insight-card__icon">workspace_premium</span>
+              <div class="insight-card__body">
+                <span class="insight-card__value" id="insightOfferRate">—</span>
+                <span class="insight-card__label">Offer Rate</span>
+              </div>
+            </div>
+            <div class="insight-card">
+              <span class="material-icons insight-card__icon">block</span>
+              <div class="insight-card__body">
+                <span class="insight-card__value" id="insightRejectionRate">—</span>
+                <span class="insight-card__label">Rejection Rate</span>
+              </div>
+            </div>
+            <div class="insight-card">
+              <span class="material-icons insight-card__icon">calendar_today</span>
+              <div class="insight-card__body">
+                <span class="insight-card__value" id="insightThisMonth">—</span>
+                <span class="insight-card__label">Applied This Month</span>
+              </div>
+            </div>
+          </div>
+
         </section>
 
         <!-- ===== JOBS TABLE ===== -->
@@ -850,6 +956,61 @@
           </div>
         </section>
 
+        <!-- ===== APPLICATIONS SECTION ===== -->
+        <section id="applicationsSection" hidden>
+          <div class="content__header">
+            <div>
+              <h1 class="content__title">My Applications</h1>
+              <p class="content__subtitle">Track every job you've applied to.</p>
+            </div>
+          </div>
+
+          <!-- Filter tabs -->
+          <div class="apps-filters" role="tablist" aria-label="Filter applications">
+            <button class="apps-filter apps-filter--active" data-filter="all" role="tab" aria-selected="true">
+              All <span class="apps-filter__count">0</span>
+            </button>
+            <button class="apps-filter" data-filter="pending" role="tab" aria-selected="false">
+              Pending <span class="apps-filter__count">0</span>
+            </button>
+            <button class="apps-filter" data-filter="interview" role="tab" aria-selected="false">
+              Interview <span class="apps-filter__count">0</span>
+            </button>
+            <button class="apps-filter" data-filter="offer" role="tab" aria-selected="false">
+              Offer <span class="apps-filter__count">0</span>
+            </button>
+            <button class="apps-filter" data-filter="rejected" role="tab" aria-selected="false">
+              Rejected <span class="apps-filter__count">0</span>
+            </button>
+          </div>
+
+          <div class="card" style="overflow:hidden">
+            <div class="table-wrapper">
+              <table class="jobs-table" aria-label="Applications">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Role</th>
+                    <th>Location</th>
+                    <th>Type</th>
+                    <th>Applied</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="appsTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Empty state -->
+            <div class="applications-empty" id="appsEmpty">
+              <span class="material-icons applications-empty__icon">inbox</span>
+              <p class="applications-empty__title">No applications yet</p>
+              <p class="applications-empty__sub">Click <strong>Apply</strong> on any job listing and it will appear here.</p>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== RESUME SECTION ===== -->
         <section id="resumeSection" hidden>
           <!-- Section heading -->
@@ -961,15 +1122,97 @@
               </p>
             </div>
           </div>
+
+          <!-- ===== AI RESUME ANALYSIS ===== -->
+          <div class="ai-resume-section">
+
+            <!-- ── Analyze card ────────────────────────────────── -->
+            <div class="card ai-card-outer">
+              <div class="ai-card-outer__header">
+                <div class="ai-card-outer__icon-wrap">
+                  <span class="material-icons">psychology</span>
+                </div>
+                <div class="ai-card-outer__text">
+                  <h3 class="ai-card-outer__title">AI Resume Analysis</h3>
+                  <p class="ai-card-outer__sub">
+                    Get an instant ATS score, skill gap report, and actionable
+                    recommendations — powered by GPT-4o mini.
+                  </p>
+                </div>
+              </div>
+              <div class="ai-card-outer__footer">
+                <button class="btn btn--primary" id="aiAnalyzeBtn">
+                  <span class="material-icons">auto_awesome</span>
+                  Analyze My Resume
+                </button>
+                <div class="ai-loader" id="aiAnalyzeLoader" hidden>
+                  <span class="material-icons">refresh</span>
+                  Analyzing…
+                </div>
+              </div>
+              <p class="ai-inline-error" id="aiAnalyzeError" hidden></p>
+            </div>
+
+            <!-- Analysis results (rendered by ai-service.js) -->
+            <div class="card" id="aiAnalysisResult" hidden></div>
+
+            <!-- ── Job match card ──────────────────────────────── -->
+            <div class="card ai-card-outer">
+              <div class="ai-card-outer__header">
+                <div class="ai-card-outer__icon-wrap ai-card-outer__icon-wrap--green">
+                  <span class="material-icons">work_history</span>
+                </div>
+                <div class="ai-card-outer__text">
+                  <h3 class="ai-card-outer__title">Job Match Analyzer</h3>
+                  <p class="ai-card-outer__sub">
+                    Paste a job description to see your match score, missing
+                    keywords, and exactly how to tailor your resume for that role.
+                  </p>
+                </div>
+              </div>
+              <textarea
+                id="aiJobDesc"
+                class="ai-job-textarea"
+                placeholder="Paste the full job description here (title, requirements, responsibilities)…"
+                rows="5"
+                aria-label="Job description"
+              ></textarea>
+              <div class="ai-card-outer__footer">
+                <button class="btn btn--primary" id="aiMatchBtn">
+                  <span class="material-icons">compare_arrows</span>
+                  Match Against Job
+                </button>
+                <div class="ai-loader" id="aiMatchLoader" hidden>
+                  <span class="material-icons">refresh</span>
+                  Matching…
+                </div>
+              </div>
+              <p class="ai-inline-error" id="aiMatchError" hidden></p>
+            </div>
+
+            <!-- Match results (rendered by ai-service.js) -->
+            <div class="card" id="aiMatchResult" hidden></div>
+
+          </div>
+          <!-- end .ai-resume-section -->
+
         </section>
       </main>
     </div>
     <!-- end .main-wrapper -->
 
+    <!-- Chart.js — loaded before analytics.js so Chart is globally available -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="script.js"></script>
     <!-- Auth guard: checks Firebase auth state; redirects to auth.html if not signed in -->
     <script type="module" src="auth-guard.js"></script>
     <!-- Resume upload + PDF preview module -->
     <script type="module" src="resume.js"></script>
+    <!-- Applications tracker module -->
+    <script type="module" src="applications.js"></script>
+    <!-- Analytics charts + insight metrics -->
+    <script type="module" src="analytics.js"></script>
+    <!-- AI resume analysis + job matcher -->
+    <script type="module" src="ai-service.js"></script>
   </body>
 </html>

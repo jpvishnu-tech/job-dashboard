@@ -1,79 +1,34 @@
-import express                 from 'express';
-import { body, query, param } from 'express-validator';
-import Job                    from '../models/Job.js';
-import asyncHandler           from '../utils/asyncHandler.js';
-import { protect, adminOnly, validate } from '../middleware/auth.js';
+/**
+ * Job routes
+ * ─────────────────────────────────────────────────────────────────────────
+ * GET    /api/jobs                  — public filtered + paginated listing
+ * GET    /api/jobs/recommended      — personalised or featured jobs
+ * GET    /api/jobs/:id              — public single job
+ * POST   /api/jobs/import           — admin: provider sync or bulk import
+ * POST   /api/jobs                  — admin: create single job
+ * PUT    /api/jobs/:id              — admin: update job
+ * PATCH  /api/jobs/:id/toggle       — admin: soft-delete / restore
+ * DELETE /api/jobs/:id              — admin: soft-delete
+ *
+ * GET    /api/jobs/source/:platform  — jobs from a specific provider
+ * POST   /api/jobs/sync              — admin: trigger manual provider sync
+ * GET    /api/jobs/providers         — admin: list provider enabled status
+ *
+ * NOTE: All named sub-paths MUST be declared BEFORE /:id to prevent Express
+ * matching them as ObjectId params.
+ */
+
+import express                  from 'express';
+import { body, param, query }   from 'express-validator';
+import asyncHandler             from '../utils/asyncHandler.js';
+import { optionalAuth, protect, protectAny, adminOnly, validate } from '../middleware/auth.js';
+import * as ctrl                from '../controllers/job.controller.js';
 
 const router = express.Router();
 
-// ── GET /api/jobs ─────────────────────────────────────────────
-// Public.  Supports search, type/location filter, sort, and pagination.
-//
-//   ?search=react       full-text across title, company, description
-//   ?type=full-time     exact match on job type enum
-//   ?location=remote    partial, case-insensitive location match
-//   ?minSalary=100000   salaryMin ≥ value
-//   ?maxSalary=200000   salaryMin ≤ value
-//   ?sort=newest|oldest|salary_asc|salary_desc|title   (default: newest)
-//   ?page=1&limit=10    (limit capped at 50)
-router.get('/', asyncHandler(async (req, res) => {
-  const {
-    search, type, location, minSalary, maxSalary,
-    sort = 'newest', page = 1, limit = 10,
-  } = req.query;
+// ── Shared validation: create / update ───────────────────────────────────
 
-  const filter = { isActive: true };
-  if (search)    filter.$text     = { $search: search };
-  if (type)      filter.type      = type;
-  if (location)  filter.location  = { $regex: location, $options: 'i' };
-  if (minSalary || maxSalary) {
-    filter.salaryMin = {};
-    if (minSalary) filter.salaryMin.$gte = Number(minSalary);
-    if (maxSalary) filter.salaryMin.$lte = Number(maxSalary);
-  }
-
-  const SORT_MAP = {
-    newest:     { postedAt: -1 },
-    oldest:     { postedAt:  1 },
-    salary_asc: { salaryMin:  1 },
-    salary_desc:{ salaryMin: -1 },
-    title:      { title:      1 },
-  };
-  const sortObj    = SORT_MAP[sort] ?? SORT_MAP.newest;
-  const projection = search ? { score: { $meta: 'textScore' } } : {};
-
-  const pageNum  = Math.max(1, Number(page));
-  const limitNum = Math.min(50, Math.max(1, Number(limit)));
-  const skip     = (pageNum - 1) * limitNum;
-
-  const [data, total] = await Promise.all([
-    Job.find(filter, projection)
-       .sort(search ? { score: { $meta: 'textScore' }, ...sortObj } : sortObj)
-       .skip(skip)
-       .limit(limitNum),
-    Job.countDocuments(filter),
-  ]);
-
-  res.json({
-    success: true,
-    data,
-    pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
-  });
-}));
-
-// ── GET /api/jobs/:id ─────────────────────────────────────────
-router.get('/:id',
-  [param('id').isMongoId().withMessage('Invalid job ID')],
-  validate,
-  asyncHandler(async (req, res) => {
-    const job = await Job.findOne({ _id: req.params.id, isActive: true });
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
-    res.json({ success: true, data: job });
-  })
-);
-
-// ── Shared validation for create / update ─────────────────────
-const jobRules = [
+const vJob = [
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('company').trim().notEmpty().withMessage('Company is required'),
   body('location').trim().notEmpty().withMessage('Location is required'),
@@ -82,44 +37,96 @@ const jobRules = [
   body('url').trim().isURL({ require_protocol: true }).withMessage('Valid URL required'),
   body('companyLogo').optional().trim(),
   body('salary').optional().trim(),
-  body('salaryMin').optional().isInt({ min: 0 }).withMessage('salaryMin must be ≥ 0'),
-  body('salaryMax').optional().isInt({ min: 0 }).withMessage('salaryMax must be ≥ 0'),
+  body('salaryMin').optional().isInt({ min: 0 }),
+  body('salaryMax').optional().isInt({ min: 0 }),
   body('department').optional().trim(),
   body('description').optional().trim(),
-  body('requirements').optional().isArray().withMessage('requirements must be an array'),
+  body('requirements').optional().isArray(),
+  body('skills').optional().isArray(),
+  body('tags').optional().isArray(),
+  body('remote').optional().isBoolean(),
+  body('experienceLevel')
+    .optional()
+    .isIn(['entry', 'mid', 'senior', 'lead', 'any']),
   body('isActive').optional().isBoolean(),
 ];
 
-// ── POST /api/jobs  (admin) ───────────────────────────────────
-router.post('/', protect, adminOnly, jobRules, validate,
-  asyncHandler(async (req, res) => {
-    const job = await Job.create(req.body);
-    res.status(201).json({ success: true, data: job });
-  })
+const vListJobs = [
+  query('page').optional().isInt({ min: 1 }).toInt(),
+  query('limit').optional().isInt({ min: 1, max: 50 }).toInt(),
+  query('minSalary').optional().isInt({ min: 0 }).toInt(),
+  query('maxSalary').optional().isInt({ min: 0 }).toInt(),
+  query('remote').optional().isIn(['true', 'false']),
+  query('experienceLevel').optional().isIn(['entry', 'mid', 'senior', 'lead', 'any']),
+  query('sort').optional().isIn(['newest', 'oldest', 'salary_asc', 'salary_desc', 'title']),
+];
+
+const vId  = [param('id').isMongoId().withMessage('Invalid job ID')];
+
+// ── Named sub-routes (BEFORE /:id) ────────────────────────────────────────
+
+// GET /api/jobs/recommended — optional auth for personalised results
+router.get('/recommended',
+  optionalAuth,
+  asyncHandler(ctrl.recommendedJobs),
 );
 
-// ── PUT /api/jobs/:id  (admin) ────────────────────────────────
+// POST /api/jobs/import — admin only (legacy bulk import / provider sync)
+router.post('/import',
+  protect, adminOnly,
+  asyncHandler(ctrl.importJobs),
+);
+
+// POST /api/jobs/sync — admin: trigger manual sync (one or all providers)
+// Body: { provider?: string } — omit to sync all enabled providers
+router.post('/sync',
+  protect, adminOnly,
+  asyncHandler(ctrl.syncJobs),
+);
+
+// GET /api/jobs/providers — admin: check provider configuration status
+router.get('/providers',
+  protect, adminOnly,
+  asyncHandler(ctrl.listProviders),
+);
+
+// GET /api/jobs/source/:platform — public: jobs from a specific source
+router.get('/source/:platform',
+  vListJobs, validate,
+  asyncHandler(ctrl.getBySource),
+);
+
+// ── Public ────────────────────────────────────────────────────────────────
+
+router.get('/',    vListJobs, validate, asyncHandler(ctrl.listJobs));
+router.get('/:id', vId,       validate, asyncHandler(ctrl.getJob));
+
+// ── Authenticated user action ─────────────────────────────────────────────
+
+// POST /api/jobs/:id/apply-click
+// Tracks an external apply-button click: logs the event, increments
+// job.clickCount, and upserts an Application (status: applied).
+// NOTE: named after /:id so Express won't try to parse 'apply-click' as
+// an ObjectId. The sub-path makes the method unique even against /:id.
+router.post('/:id/apply-click',
+  protectAny, vId, validate,
+  asyncHandler(ctrl.trackApplyClick),
+);
+
+// ── Admin ─────────────────────────────────────────────────────────────────
+
+router.post('/',
+  protect, adminOnly, vJob, validate, asyncHandler(ctrl.createJob));
+
 router.put('/:id',
   protect, adminOnly,
-  [param('id').isMongoId().withMessage('Invalid job ID'), ...jobRules.map((r) => r.optional())],
-  validate,
-  asyncHandler(async (req, res) => {
-    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
-    res.json({ success: true, data: job });
-  })
-);
+  [...vId, ...vJob.map(r => r.optional())], validate,
+  asyncHandler(ctrl.updateJob));
 
-// ── DELETE /api/jobs/:id  (admin — soft delete) ───────────────
+router.patch('/:id/toggle',
+  protect, adminOnly, vId, validate, asyncHandler(ctrl.toggleJob));
+
 router.delete('/:id',
-  protect, adminOnly,
-  [param('id').isMongoId().withMessage('Invalid job ID')],
-  validate,
-  asyncHandler(async (req, res) => {
-    const job = await Job.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
-    res.json({ success: true, message: 'Job removed', data: job });
-  })
-);
+  protect, adminOnly, vId, validate, asyncHandler(ctrl.deleteJob));
 
 export default router;

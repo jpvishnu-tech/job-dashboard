@@ -115,8 +115,9 @@ window.addEventListener('resize', () => {
    ============================================================ */
 
 const SECTION_MAP = {
-  dashboard: ['#dashboardHeader', '.stats-grid', '.jobs-section'],
-  resume:    ['#resumeSection'],
+  dashboard:    ['#dashboardHeader', '.stats-grid', '#chartsSection', '.jobs-section'],
+  applications: ['#applicationsSection'],
+  resume:       ['#resumeSection'],
 };
 
 function showSection(name) {

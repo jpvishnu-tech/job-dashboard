@@ -1,42 +1,93 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import './ResumePage.css';
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_BYTES  = 10 * 1024 * 1024; // 10 MB
+const BUCKET     = 'resumes';
 
 /**
- * ResumePage
- * ─────────────────────────────────────────────────────────────
- * Drag-and-drop PDF upload with inline preview.
- * In placeholder mode (no Firebase credentials) the file is stored
- * only in memory via URL.createObjectURL — it is not persisted.
- * With real Firebase credentials, wire uploadBytesResumable from
- * firebase/storage to persist the file to Firebase Storage.
+ * Upload a file to Supabase Storage via XMLHttpRequest so that the
+ * onprogress event delivers real byte-level progress to the UI.
+ * progressRef is populated so callers can call .abort() on unmount.
+ *
+ * Returns the Supabase public URL for the uploaded object.
  */
+function uploadToSupabase(file, storagePath, progressRef, onProgress) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    progressRef.current = xhr;
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      progressRef.current = null;
+      if (xhr.status === 200 || xhr.status === 201) {
+        // Derive the public URL from the known Supabase Storage URL pattern.
+        // Requires the "resumes" bucket to have public access enabled in the
+        // Supabase dashboard (Storage → Policies → Make bucket public).
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+        resolve(data.publicUrl);
+      } else {
+        let msg = `Upload failed (${xhr.status})`;
+        try { msg = JSON.parse(xhr.responseText)?.message ?? msg; } catch { /* keep default */ }
+        reject(new Error(msg));
+      }
+    };
+
+    xhr.onerror  = () => { progressRef.current = null; reject(new Error('Network error during upload')); };
+    xhr.onabort  = () => { progressRef.current = null; reject(new Error('Upload cancelled')); };
+
+    // PUT with x-upsert:true overwrites an object with the same path, which
+    // means Replace works without needing a prior delete call.
+    xhr.open('PUT', `${supabaseUrl}/storage/v1/object/${BUCKET}/${encodeURIComponent(storagePath)}`);
+    xhr.setRequestHeader('Authorization',  `Bearer ${supabaseKey}`);
+    xhr.setRequestHeader('Content-Type',   'application/pdf');
+    xhr.setRequestHeader('x-upsert',       'true');
+    xhr.send(file);
+  });
+}
+
+/** Build a unique, filesystem-safe storage path for a given file. */
+function buildStoragePath(fileName) {
+  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `${Date.now()}-${safe}`;
+}
+
 export default function ResumePage() {
   const [file,       setFile]       = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [publicUrl,  setPublicUrl]  = useState(null);
   const [dragging,   setDragging]   = useState(false);
   const [uploading,  setUploading]  = useState(false);
   const [progress,   setProgress]   = useState(0);
   const [errorMsg,   setErrorMsg]   = useState('');
+  const [copied,     setCopied]     = useState(false);
 
   const fileInputRef = useRef(null);
-  const dragCounter  = useRef(0);  // tracks nested drag-enter/leave events
+  const dragCounter  = useRef(0);
+  // Holds the live XMLHttpRequest so it can be aborted on unmount or remove.
   const progressRef  = useRef(null);
 
-  // Revoke the object URL when it changes or the component unmounts
+  // Revoke the blob URL when it changes or on unmount.
   useEffect(() => {
     return () => {
       if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  // Clean up in-progress simulated upload on unmount
+  // Abort any in-flight upload when the component unmounts.
   useEffect(() => {
-    return () => { if (progressRef.current) clearInterval(progressRef.current); };
+    return () => { progressRef.current?.abort(); };
   }, []);
 
-  const processFile = useCallback((f) => {
+  const processFile = useCallback(async (f) => {
     setErrorMsg('');
 
     if (f.type !== 'application/pdf') {
@@ -48,26 +99,31 @@ export default function ResumePage() {
       return;
     }
 
-    // Release the previous blob URL before creating a new one
+    // Release the previous blob URL before creating a new one.
     if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
 
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
-
-    // Simulate upload progress (replace with uploadBytesResumable for real uploads)
+    setPublicUrl(null);
     setUploading(true);
     setProgress(0);
-    let p = 0;
-    progressRef.current = setInterval(() => {
-      p += Math.random() * 18 + 5;
-      if (p >= 100) {
-        clearInterval(progressRef.current);
-        setProgress(100);
-        setUploading(false);
-        return;
-      }
-      setProgress(p);
-    }, 160);
+
+    const storagePath = buildStoragePath(f.name);
+
+    try {
+      const url = await uploadToSupabase(f, storagePath, progressRef, setProgress);
+      setPublicUrl(url);
+    } catch (err) {
+      // Ignore deliberate aborts triggered by handleRemove / unmount.
+      if (err.message === 'Upload cancelled') return;
+      setErrorMsg(`Upload failed: ${err.message}`);
+      // Roll back UI to the drop-zone state on error.
+      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+      setFile(null);
+      setPreviewUrl(null);
+    } finally {
+      setUploading(false);
+    }
   }, [previewUrl]);
 
   const handleDrop = (e) => {
@@ -98,13 +154,22 @@ export default function ResumePage() {
   };
 
   const handleRemove = () => {
-    if (progressRef.current) clearInterval(progressRef.current);
+    progressRef.current?.abort();
     if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     setFile(null);
     setPreviewUrl(null);
+    setPublicUrl(null);
     setUploading(false);
     setProgress(0);
     setErrorMsg('');
+    setCopied(false);
+  };
+
+  const handleCopyLink = async () => {
+    if (!publicUrl) return;
+    await navigator.clipboard.writeText(publicUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const formatBytes = (n) => {
@@ -176,6 +241,15 @@ export default function ResumePage() {
             </div>
             {!uploading && (
               <div className="resume-meta__actions">
+                {publicUrl && (
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={handleCopyLink}
+                    title="Copy public link"
+                  >
+                    <span className="material-icons">{copied ? 'check' : 'link'}</span>
+                  </button>
+                )}
                 <button
                   className="btn btn--ghost btn--sm"
                   onClick={() => fileInputRef.current?.click()}

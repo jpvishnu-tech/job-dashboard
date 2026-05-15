@@ -1,0 +1,60 @@
+.navbar {
+  position:       sticky;
+  top:            0;
+  height:         64px;
+  background:     var(--bg-navbar);
+  border-bottom:  1px solid var(--border-color);
+  display:        flex;
+  align-items:    center;
+  justify-content: space-between;
+  padding:        0 24px;
+  z-index:        50;
+  box-shadow:     var(--shadow-sm);
+}
+
+.navbar__left {
+  display:     flex;
+  align-items: center;
+  gap:         16px;
+}
+
+.navbar__toggle {
+  background:    none;
+  border:        none;
+  cursor:        pointer;
+  color:         var(--text-secondary);
+  padding:       8px;
+  border-radius: 8px;
+  display:       flex;
+  align-items:   center;
+  transition:    background var(--transition), color var(--transition);
+}
+.navbar__toggle:hover { background: var(--border-color); color: var(--text-primary); }
+.navbar__toggle .material-icons { font-size: 22px; }
+
+.navbar__title {
+  margin:      0;
+  font-size:   18px;
+  font-weight: 700;
+  color:       var(--text-primary);
+}
+
+.navbar__right {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+}
+
+.navbar__icon-btn {
+  background:    none;
+  border:        none;
+  cursor:        pointer;
+  color:         var(--text-secondary);
+  padding:       8px;
+  border-radius: 8px;
+  display:       flex;
+  align-items:   center;
+  transition:    background var(--transition), color var(--transition);
+}
+.navbar__icon-btn:hover { background: var(--border-color); color: var(--text-primary); }
+.navbar__icon-btn .material-icons { font-size: 22px; }

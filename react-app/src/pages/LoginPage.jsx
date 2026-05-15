@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api, ApiError } from '../services/api';
+import { ApiError } from '../services/api';
 import './LoginPage.css';
 
 // view: 'login' | 'register' | 'forgot'
 export default function LoginPage() {
-  const { login, register } = useAuth();
+  const { login, register, sendPasswordReset } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
   const from      = location.state?.from?.pathname || '/';
@@ -65,6 +65,11 @@ export default function LoginPage() {
       }
       navigate(from, { replace: true });
     } catch (err) {
+      // 202 = email confirmation required — treat as a success message, not an error
+      if (err instanceof ApiError && err.status === 202) {
+        setSuccess(err.message);
+        return;
+      }
       if (err instanceof ApiError && err.errors?.length) {
         const m = {};
         err.errors.forEach(({ path, msg }) => { m[path] = msg; });
@@ -89,7 +94,7 @@ export default function LoginPage() {
     setLoading(true);
     setFormErr('');
     try {
-      await api.post('/auth/forgot-password', { email: fields.email });
+      await sendPasswordReset(fields.email);
       setSuccess('If that email is registered you will receive a reset link shortly.');
     } catch (err) {
       setFormErr(err instanceof ApiError ? err.message : 'Something went wrong.');

@@ -19,16 +19,29 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type:      String,
-      // Not required for Firebase-auth users — they authenticate via Firebase ID token.
+      // Not required for Firebase-auth or Supabase-auth users.
       minlength: [8, 'Password must be at least 8 characters'],
       select:    false,
     },
     avatar: { type: String, default: '' },
-    role:   { type: String, enum: ['user', 'admin'], default: 'user' },
+    role:   { type: String, enum: ['user', 'recruiter', 'admin'], default: 'user' },
+
+    // Recruiter-specific fields
+    company: {
+      type:    mongoose.Schema.Types.ObjectId,
+      ref:     'Company',
+      default: null,
+    },
 
     // Firebase UID — set when the account is created or linked via Firebase auth.
     // sparse:true allows multiple documents without this field (non-Firebase users).
     firebaseUid: { type: String, unique: true, sparse: true, select: false },
+
+    // Supabase UID — set when the account is created or linked via Supabase auth.
+    supabaseUid: { type: String, unique: true, sparse: true, select: false },
+
+    // Stripe customer ID — created on first checkout
+    stripeCustomerId: { type: String, default: null, sparse: true },
 
     // Password-reset flow — not returned in normal queries (select: false)
     resetPasswordToken:   { type: String, select: false },
