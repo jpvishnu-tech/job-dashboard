@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import './ResumePage.css';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -50,7 +50,20 @@ export default function ResumePage() {
     setUploading(true);
 
     const storagePath = buildStoragePath(f.name);
+
+    if (!isSupabaseConfigured) {
+      console.error('[Resume] Supabase is not configured — VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set.');
+      setErrorMsg('Storage is not configured. Please contact support.');
+      setUploading(false);
+      setFile(null);
+      setPreviewUrl(null);
+      return;
+    }
+
+    // Log the current session so we can confirm auth is working in production.
+    const { data: sessionData } = await supabase.auth.getSession();
     console.log('[Resume] Upload start —', storagePath, `(${(f.size / 1024).toFixed(1)} KB)`);
+    console.log('[Resume] Supabase session present:', !!sessionData?.session);
 
     try {
       const { data, error } = await supabase.storage
