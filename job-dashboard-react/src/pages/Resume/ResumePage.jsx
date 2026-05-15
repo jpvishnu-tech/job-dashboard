@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth }                     from '../../context/AuthContext';
 import { uploadResume, getResumeData, deleteResume } from '../../services/resume';
-import AtsPanel      from './panels/AtsPanel';
+import AtsPanel       from './panels/AtsPanel';
 import OptimizerPanel from './panels/OptimizerPanel';
 import RewriterPanel  from './panels/RewriterPanel';
 import HistoryPanel   from './panels/HistoryPanel';
@@ -10,12 +10,12 @@ import VersionsPanel  from './panels/VersionsPanel';
 import './ResumePage.css';
 
 const TABS = [
-  { id: 'ats',       label: 'ATS Analysis',    icon: 'psychology'    },
-  { id: 'optimizer', label: 'Job Optimizer',   icon: 'tune'          },
-  { id: 'tailor',    label: 'Job Tailor',      icon: 'content_cut'   },
-  { id: 'rewriter',  label: 'AI Rewriter',     icon: 'auto_fix_high' },
-  { id: 'versions',  label: 'Saved Versions',  icon: 'bookmarks'     },
-  { id: 'history',   label: 'History',         icon: 'history'       },
+  { id: 'ats',       label: 'ATS Analysis',   icon: 'psychology'    },
+  { id: 'optimizer', label: 'Job Optimizer',  icon: 'tune'          },
+  { id: 'tailor',    label: 'Job Tailor',     icon: 'content_cut'   },
+  { id: 'rewriter',  label: 'AI Rewriter',    icon: 'auto_fix_high' },
+  { id: 'versions',  label: 'Saved Versions', icon: 'bookmarks'     },
+  { id: 'history',   label: 'History',        icon: 'history'       },
 ];
 
 function formatBytes(bytes) {
@@ -33,38 +33,42 @@ function formatDate(val) {
 export default function ResumePage() {
   const { user } = useAuth();
 
-  // Upload state
-  const [resumeData, setResumeData]       = useState(null);
-  const [uploading, setUploading]         = useState(false);
-  const [uploadPct, setUploadPct]         = useState(0);
-  const [uploadError, setUploadError]     = useState('');
+  const [resumeData,    setResumeData]    = useState(null);
+  const [uploading,     setUploading]     = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError,   setUploadError]   = useState('');
   const [loadingResume, setLoadingResume] = useState(true);
   const fileInputRef = useRef(null);
 
-  // Tab state
   const [activeTab, setActiveTab] = useState('ats');
+
+  // getToken returns a fresh Firebase ID token for backend API calls
+  const getToken = () => user.getIdToken();
 
   useEffect(() => {
     if (!user) return;
-    getResumeData(user.uid)
+    getResumeData(getToken)
       .then(data => setResumeData(data))
       .catch(() => {})
       .finally(() => setLoadingResume(false));
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleFileSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== 'application/pdf') { setUploadError('Only PDF files are supported.'); return; }
-    if (file.size > 10 * 1024 * 1024)    { setUploadError('File must be smaller than 10 MB.'); return; }
+    if (file.size > 10 * 1024 * 1024)   { setUploadError('File must be smaller than 10 MB.'); return; }
 
     setUploadError('');
+    setUploadSuccess(false);
     setUploading(true);
-    setUploadPct(0);
+
     try {
-      const url = await uploadResume(user.uid, file, pct => setUploadPct(pct));
-      setResumeData({ url, fileName: file.name, fileSize: file.size, uploadedAt: { toDate: () => new Date() } });
+      const url = await uploadResume(user.uid, file, getToken);
+      setResumeData({ url, fileName: file.name, fileSize: file.size, uploadedAt: new Date() });
+      setUploadSuccess(true);
     } catch (err) {
+      console.error('[Resume] handleFileSelect error —', err);
       setUploadError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
@@ -75,8 +79,9 @@ export default function ResumePage() {
   async function handleDelete() {
     if (!confirm('Delete your resume?')) return;
     try {
-      await deleteResume(user.uid);
+      await deleteResume(getToken);
       setResumeData(null);
+      setUploadSuccess(false);
     } catch (err) {
       setUploadError(err.message);
     }
@@ -86,7 +91,7 @@ export default function ResumePage() {
 
   return (
     <div className="resume-page">
-      {/* ── Upload card ─────────────────────────────────────────── */}
+      {/* ── Upload card ──────────────────────────────────────────── */}
       <div className="card resume-upload-card">
         <div className="resume-upload-header">
           <div className="resume-upload-icon">
@@ -131,10 +136,19 @@ export default function ResumePage() {
           </div>
         )}
 
+        {/* Indeterminate progress bar — shown while Supabase upload is in-flight */}
         {uploading && (
           <div className="resume-progress">
-            <div className="resume-progress-bar" style={{ width: `${uploadPct}%` }} />
-            <span className="resume-progress-pct">{uploadPct}%</span>
+            <div className="resume-progress-bar resume-progress-bar--indeterminate" />
+            <span className="resume-progress-pct">Uploading…</span>
+          </div>
+        )}
+
+        {/* Success banner */}
+        {uploadSuccess && !uploading && (
+          <div className="resume-upload-success">
+            <span className="material-icons">check_circle</span>
+            Resume uploaded successfully!
           </div>
         )}
 
