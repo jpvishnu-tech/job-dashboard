@@ -1,12 +1,12 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import './ResumePage.css';
+import { useState, useRef, useCallback, useEffect } from "react";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import "./ResumePage.css";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const BUCKET    = 'resumes';
+const BUCKET = "resumes";
 
 function buildStoragePath(fileName) {
-  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
   return `${Date.now()}-${safe}`;
 }
 
@@ -17,7 +17,7 @@ export default function ResumePage() {
   const [dragging,      setDragging]      = useState(false);
   const [uploading,     setUploading]     = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [errorMsg,      setErrorMsg]      = useState('');
+  const [errorMsg,      setErrorMsg]      = useState("");
   const [copied,        setCopied]        = useState(false);
 
   const fileInputRef = useRef(null);
@@ -25,76 +25,101 @@ export default function ResumePage() {
 
   useEffect(() => {
     return () => {
-      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  const processFile = useCallback(async (f) => {
-    setErrorMsg('');
-    setUploadSuccess(false);
+  const processFile = useCallback(
+    async (f) => {
+      setErrorMsg("");
+      setUploadSuccess(false);
 
-    if (f.type !== 'application/pdf') {
-      setErrorMsg('Only PDF files are supported.');
-      return;
-    }
-    if (f.size > MAX_BYTES) {
-      setErrorMsg('File must be smaller than 10 MB.');
-      return;
-    }
-
-    if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
-
-    setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
-    setPublicUrl(null);
-    setUploading(true);
-
-    const storagePath = buildStoragePath(f.name);
-
-    if (!isSupabaseConfigured) {
-      console.error('[Resume] Supabase is not configured — VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set.');
-      setErrorMsg('Storage is not configured. Please contact support.');
-      setUploading(false);
-      setFile(null);
-      setPreviewUrl(null);
-      return;
-    }
-
-    // Log the current session so we can confirm auth is working in production.
-    const { data: sessionData } = await supabase.auth.getSession();
-    console.log('[Resume] Upload start —', storagePath, `(${(f.size / 1024).toFixed(1)} KB)`);
-    console.log('[Resume] Supabase session present:', !!sessionData?.session);
-
-    try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .upload(storagePath, f, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-
-      if (error) {
-        console.error('[Resume] Upload error —', error.message, error);
-        throw new Error(error.message);
+      // ── Step 1: validate before touching any state ────────────
+      if (f.type !== "application/pdf") {
+        setErrorMsg("Only PDF files are supported.");
+        return;
+      }
+      if (f.size > MAX_BYTES) {
+        setErrorMsg("File must be smaller than 10 MB.");
+        return;
+      }
+      if (!isSupabaseConfigured) {
+        console.error(
+          "[Resume] Supabase not configured — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.",
+        );
+        setErrorMsg("Storage is not configured. Please contact support.");
+        return;
       }
 
-      console.log('[Resume] Upload success —', data);
+      // ── Step 2: build path, then log (storagePath is defined here) ──
+      const storagePath = buildStoragePath(f.name);
 
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-      console.log('[Resume] Public URL —', urlData.publicUrl);
+      console.log("[Resume] BUCKET =", BUCKET);
+      console.log("[Resume] FILE NAME =", f.name);
+      console.log("[Resume] FILE SIZE =", f.size);
+      console.log("[Resume] FILE TYPE =", f.type);
+      console.log("[Resume] STORAGE PATH =", storagePath);
 
-      setPublicUrl(urlData.publicUrl);
-      setUploadSuccess(true);
-    } catch (err) {
-      console.error('[Resume] Upload failed —', err);
-      setErrorMsg(`Upload failed: ${err.message}`);
-      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
-      setFile(null);
-      setPreviewUrl(null);
-    } finally {
-      setUploading(false);
-    }
-  }, [previewUrl]);
+      // ── Step 3: update UI ─────────────────────────────────────
+      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+      setFile(f);
+      setPreviewUrl(URL.createObjectURL(f));
+      setPublicUrl(null);
+      setUploading(true);
+
+      // ── Step 4: verify Supabase session ───────────────────────
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      console.log(
+        "[Resume] Supabase session present:",
+        !!sessionData?.session,
+        sessionError ? `(session error: ${sessionError.message})` : "",
+      );
+
+      // ── Step 5: upload ────────────────────────────────────────
+      try {
+        console.log("[Resume] Starting upload…");
+
+        const { data, error } = await supabase.storage
+          .from(BUCKET)
+          .upload(storagePath, f, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
+
+        if (error) {
+          console.error("[Resume] Upload error —", error.message, error);
+          throw new Error(error.message);
+        }
+
+        console.log("[Resume] Upload success —", data);
+
+        // ── Step 6: get public URL ────────────────────────────
+        const { data: urlData, error: urlError } = supabase.storage
+          .from(BUCKET)
+          .getPublicUrl(storagePath);
+
+        if (urlError) {
+          console.error("[Resume] getPublicUrl error —", urlError.message);
+          throw new Error(urlError.message);
+        }
+
+        console.log("[Resume] Public URL —", urlData.publicUrl);
+
+        setPublicUrl(urlData.publicUrl);
+        setUploadSuccess(true);
+      } catch (err) {
+        console.error("[Resume] Upload failed —", err);
+        setErrorMsg(`Upload failed: ${err.message}`);
+        if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+        setFile(null);
+        setPreviewUrl(null);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [previewUrl],
+  );
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -120,17 +145,17 @@ export default function ResumePage() {
   const handleFileInput = (e) => {
     const f = e.target.files[0];
     if (f) processFile(f);
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const handleRemove = () => {
-    if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+    if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     setFile(null);
     setPreviewUrl(null);
     setPublicUrl(null);
     setUploading(false);
     setUploadSuccess(false);
-    setErrorMsg('');
+    setErrorMsg("");
     setCopied(false);
   };
 
@@ -155,7 +180,10 @@ export default function ResumePage() {
           <p className="content__subtitle">Upload and preview your resume PDF.</p>
         </div>
         {file && !uploading && (
-          <button className="btn btn--primary" onClick={() => fileInputRef.current?.click()}>
+          <button
+            className="btn btn--primary"
+            onClick={() => fileInputRef.current?.click()}
+          >
             <span className="material-icons">upload_file</span>
             Replace
           </button>
@@ -180,13 +208,13 @@ export default function ResumePage() {
         ref={fileInputRef}
         type="file"
         accept=".pdf,application/pdf"
-        style={{ display: 'none' }}
+        style={{ display: "none" }}
         onChange={handleFileInput}
       />
 
       {!file ? (
         <div
-          className={`resume-dropzone${dragging ? ' resume-dropzone--active' : ''}`}
+          className={`resume-dropzone${dragging ? " resume-dropzone--active" : ""}`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragEnter={handleDragEnter}
@@ -194,13 +222,13 @@ export default function ResumePage() {
           onClick={() => fileInputRef.current?.click()}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+          onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
         >
           <span className="material-icons resume-dropzone__icon">
-            {dragging ? 'file_download' : 'upload_file'}
+            {dragging ? "file_download" : "upload_file"}
           </span>
           <p className="resume-dropzone__primary">
-            {dragging ? 'Drop to upload' : 'Drop your PDF here or click to browse'}
+            {dragging ? "Drop to upload" : "Drop your PDF here or click to browse"}
           </p>
           <p className="resume-dropzone__secondary">PDF only · Max 10 MB</p>
         </div>
@@ -220,7 +248,7 @@ export default function ResumePage() {
                     onClick={handleCopyLink}
                     title="Copy public link"
                   >
-                    <span className="material-icons">{copied ? 'check' : 'link'}</span>
+                    <span className="material-icons">{copied ? "check" : "link"}</span>
                   </button>
                 )}
                 <button
