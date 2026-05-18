@@ -3,49 +3,13 @@ import { useState, useEffect } from 'react';
 /**
  * useJobs
  * ─────────────────────────────────────────────────────────────
- * Fetches job listings with a two-source strategy:
- *
- *   1. Backend  GET /api/jobs — jobs stored in MongoDB (via Vite proxy)
- *   2. Remotive public API   — fallback when the backend has no jobs yet
- *
- * The backend is tried first.  If it returns an empty array or errors,
- * the hook automatically falls back to Remotive so the dashboard is
- * never blank.  The `source` return value ('backend' | 'remotive') lets
- * the UI show a "Live" indicator when using real-time external data.
- *
+ * Fetches remote job listings from the Remotive public API.
  * Returns: { jobs, loading, error, source, refetch }
  */
 
-const BACKEND_URL  = '/api/jobs?limit=50&sort=newest';
 const REMOTIVE_URL = 'https://remotive.com/api/remote-jobs?category=software-dev&limit=50';
 
-// ── Backend normaliser ────────────────────────────────────────────────────────
-
-const BACKEND_TYPE_MAP = {
-  'full-time':  { label: 'Full-time', cls: 'type-badge--full'   },
-  'part-time':  { label: 'Part-time', cls: 'type-badge--hybrid' },
-  'contract':   { label: 'Contract',  cls: 'type-badge--onsite' },
-  'internship': { label: 'Internship',cls: 'type-badge--hybrid' },
-};
-
-function normaliseBackend(job) {
-  const type = BACKEND_TYPE_MAP[job.type] ?? { label: 'Remote', cls: 'type-badge--remote' };
-  return {
-    id:       job._id,
-    company:  job.company  || 'Unknown',
-    logoUrl:  job.companyLogo ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=6366f1&color=fff&size=36&bold=true`,
-    role:     job.title    || 'Open Position',
-    dept:     job.department || 'Engineering',
-    location: job.location || 'Remote',
-    salary:   job.salary   || '',
-    salaryN:  job.salaryMin || 0,
-    type,
-    url:      job.url || '#',
-  };
-}
-
-// ── Remotive normaliser ───────────────────────────────────────────────────────
+// ── Remotive normaliser ───────────────────────────────────────
 
 const TYPE_MAP = {
   full_time: { label: 'Full-time', cls: 'type-badge--full'   },
@@ -88,14 +52,13 @@ function normaliseRemotive(raw) {
   };
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// ── Hook ──────────────────────────────────────────────────────
 
 export function useJobs() {
-  const [jobs,    setJobs]    = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
-  const [source,  setSource]  = useState(null); // 'backend' | 'remotive'
-  const [fetchKey,setFetchKey]= useState(0);
+  const [jobs,     setJobs]     = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
+  const [fetchKey, setFetchKey] = useState(0);
 
   useEffect(() => {
     const ctrl    = new AbortController();
@@ -104,53 +67,27 @@ export function useJobs() {
     setLoading(true);
     setError(null);
 
-    const signal = ctrl.signal;
-
-    // ── Step 1: try the backend ────────────────────────────────
-    fetch(BACKEND_URL, { signal })
+    fetch(REMOTIVE_URL, { signal: ctrl.signal })
       .then((res) => {
-        if (!res.ok) throw new Error(`Backend ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
         return res.json();
       })
-      .then(({ data = [] }) => {
-        if (data.length > 0) {
-          // Backend has jobs — use them
-          setJobs(data.map(normaliseBackend));
-          setSource('backend');
-          setLoading(false);
-          return;
-        }
-
-        // Backend is empty — fall through to Remotive
-        return fetchRemotive(signal);
-      })
-      .catch(() => {
-        // Backend unreachable or errored — fall back gracefully
-        if (!signal.aborted) return fetchRemotive(signal);
-      })
-      .finally(() => clearTimeout(timeout));
-
-    // ── Step 2: Remotive fallback ──────────────────────────────
-    async function fetchRemotive(sig) {
-      try {
-        const res = await fetch(REMOTIVE_URL, { signal: sig });
-        if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
-        const { jobs: list = [] } = await res.json();
+      .then(({ jobs: list = [] }) => {
         setJobs(list.map(normaliseRemotive));
-        setSource('remotive');
         setLoading(false);
-      } catch (err) {
+      })
+      .catch((err) => {
         if (err.name !== 'AbortError') {
           setError(err.message || 'Failed to load jobs');
           setLoading(false);
         }
-      }
-    }
+      })
+      .finally(() => clearTimeout(timeout));
 
     return () => { ctrl.abort(); clearTimeout(timeout); };
   }, [fetchKey]);
 
   const refetch = () => setFetchKey((k) => k + 1);
 
-  return { jobs, loading, error, source, refetch };
+  return { jobs, loading, error, source: 'remotive', refetch };
 }

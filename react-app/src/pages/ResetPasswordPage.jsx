@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, ApiError } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { ApiError } from '../services/api';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import './LoginPage.css'; // reuse login card styles
 
 // Supabase sends the recovery token in the URL hash:
 //   /reset-password#access_token=...&type=recovery
-// The backend JWT flow sends it in the query string:
-//   /reset-password?token=...
 const hashParams = new URLSearchParams(
   typeof window !== 'undefined' ? window.location.hash.slice(1) : ''
 );
@@ -15,8 +13,6 @@ const isSupabaseRecovery = isSupabaseConfigured && hashParams.get('type') === 'r
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
 
   const [password,  setPassword]  = useState('');
   const [confirm,   setConfirm]   = useState('');
@@ -25,8 +21,8 @@ export default function ResetPasswordPage() {
   const [errors,    setErrors]    = useState({});
   const [formErr,   setFormErr]   = useState('');
 
-  // Neither a Supabase recovery hash nor a backend token — invalid link.
-  if (!isSupabaseRecovery && !token) {
+  // No Supabase recovery token in the URL hash — invalid or expired link.
+  if (!isSupabaseRecovery) {
     return (
       <div className="login-page">
         <div className="login-card">
@@ -70,15 +66,11 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setFormErr('');
     try {
-      if (isSupabaseRecovery) {
-        // Supabase has already set a recovery session from the URL hash.
-        // updateUser() sets the new password for the authenticated recovery session.
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw new ApiError(error.message ?? 'Password update failed.', 400);
-        await supabase.auth.signOut().catch(() => {});
-      } else {
-        await api.post('/auth/reset-password', { token, password });
-      }
+      // Supabase sets a recovery session from the URL hash automatically.
+      // updateUser() sets the new password for that authenticated session.
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw new ApiError(error.message ?? 'Password update failed.', 400);
+      await supabase.auth.signOut().catch(() => {});
 
       navigate('/login', {
         replace: true,

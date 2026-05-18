@@ -2,8 +2,9 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import "./ResumePage.css";
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const BUCKET = "resumes";
+const MAX_BYTES       = 10 * 1024 * 1024; // 10 MB
+const BUCKET          = "resumes";
+const UPLOAD_TIMEOUT  = 30_000; // ms — surfaces a clear error instead of hanging forever
 
 function buildStoragePath(fileName) {
   const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -62,8 +63,9 @@ export default function ResumePage() {
 
       // ── Step 3: update UI ─────────────────────────────────────
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+      const newBlobUrl = URL.createObjectURL(f);
       setFile(f);
-      setPreviewUrl(URL.createObjectURL(f));
+      setPreviewUrl(newBlobUrl);
       setPublicUrl(null);
       setUploading(true);
 
@@ -76,16 +78,25 @@ export default function ResumePage() {
         sessionError ? `(session error: ${sessionError.message})` : "",
       );
 
-      // ── Step 5: upload ────────────────────────────────────────
+      // ── Step 5: upload with 30-second timeout ─────────────────
       try {
         console.log("[Resume] Starting upload…");
 
-        const { data, error } = await supabase.storage
+        const uploadPromise = supabase.storage
           .from(BUCKET)
           .upload(storagePath, f, {
             contentType: "application/pdf",
             upsert: true,
           });
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Upload timed out — check your internet connection.")),
+            UPLOAD_TIMEOUT,
+          ),
+        );
+
+        const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
 
         if (error) {
           console.error("[Resume] Upload error —", error.message, error);
@@ -95,14 +106,9 @@ export default function ResumePage() {
         console.log("[Resume] Upload success —", data);
 
         // ── Step 6: get public URL ────────────────────────────
-        const { data: urlData, error: urlError } = supabase.storage
+        const { data: urlData } = supabase.storage
           .from(BUCKET)
           .getPublicUrl(storagePath);
-
-        if (urlError) {
-          console.error("[Resume] getPublicUrl error —", urlError.message);
-          throw new Error(urlError.message);
-        }
 
         console.log("[Resume] Public URL —", urlData.publicUrl);
 
@@ -111,7 +117,7 @@ export default function ResumePage() {
       } catch (err) {
         console.error("[Resume] Upload failed —", err);
         setErrorMsg(`Upload failed: ${err.message}`);
-        if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+        URL.revokeObjectURL(newBlobUrl);
         setFile(null);
         setPreviewUrl(null);
       } finally {

@@ -1,14 +1,15 @@
 /**
- * api.js — Central fetch client
+ * api.js — Typed error class + minimal fetch helper
  * ─────────────────────────────────────────────────────────────
- * All backend requests go through this module so that:
- *   • Authorization headers are injected automatically
- *   • JSON bodies are serialised consistently
- *   • Non-2xx responses throw a typed ApiError with status + field errors
- *   • Token storage is centralised (localStorage key 'jdToken')
+ * Authentication is handled directly by the Supabase client (see AuthContext).
  *
- * In development Vite proxies /api → http://localhost:5000 (vite.config.js).
- * In production set VITE_API_URL to the backend's public URL.
+ * ApiError is used throughout the app (LoginPage, ResetPasswordPage, AuthContext)
+ * to carry HTTP status codes alongside error messages so the UI can branch on
+ * specific codes (e.g. 202 = email confirmation pending).
+ *
+ * The api.get/post/put/delete helpers are kept for the admin pages that still
+ * call backend routes when a server is present.  Without a backend those calls
+ * fail gracefully — admin pages show their empty/error states rather than crash.
  */
 
 export class ApiError extends Error {
@@ -16,48 +17,29 @@ export class ApiError extends Error {
     super(message);
     this.name   = 'ApiError';
     this.status = status;
-    this.errors = errors; // array of { field, message } from express-validator
+    this.errors = errors; // field-level validation errors from express-validator
   }
-}
-
-// ── Token storage ─────────────────────────────────────────────
-const TOKEN_KEY = 'jdToken';
-
-export function getToken()        { return localStorage.getItem(TOKEN_KEY); }
-export function setToken(token)   {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else       localStorage.removeItem(TOKEN_KEY);
 }
 
 // ── Core request ──────────────────────────────────────────────
 const BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 async function request(endpoint, { body, ...rest } = {}) {
-  const token = getToken();
-
   const res = await fetch(`${BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    headers: { 'Content-Type': 'application/json' },
     body:    body !== undefined ? JSON.stringify(body) : undefined,
     ...rest,
   });
 
-  // 204 No Content — nothing to parse
   if (res.status === 204) return null;
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    if (res.status === 401) {
-      setToken(null);
-      window.dispatchEvent(new CustomEvent('auth:logout'));
-    }
     throw new ApiError(
       data.message || `HTTP ${res.status}`,
       res.status,
-      data.errors ?? []
+      data.errors ?? [],
     );
   }
 
@@ -66,7 +48,7 @@ async function request(endpoint, { body, ...rest } = {}) {
 
 // ── Convenience methods ───────────────────────────────────────
 export const api = {
-  get:    (url, opts)       => request(url, { method: 'GET', ...opts }),
+  get:    (url, opts)       => request(url, { method: 'GET',    ...opts }),
   post:   (url, body, opts) => request(url, { method: 'POST',   body, ...opts }),
   put:    (url, body, opts) => request(url, { method: 'PUT',    body, ...opts }),
   delete: (url, opts)       => request(url, { method: 'DELETE', ...opts }),
