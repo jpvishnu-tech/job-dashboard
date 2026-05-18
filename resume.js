@@ -3,11 +3,14 @@ import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/
 import {
   getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp,
 }                                      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import {
-  getStorage, ref as storageRef,
-  uploadBytesResumable, getDownloadURL, deleteObject,
-}                                      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 import { firebaseConfig }              from './firebase-config.js';
+
+// ── Supabase Storage (replaces Firebase Storage) ──────────────────────────────
+// File uploads go to Supabase; Firestore only stores the metadata + public URL.
+
+const SUPABASE_URL      = 'https://wunfbgqfulojopwhhhmb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_jWiiIf4rB2I5-hLP_lmZwQ_VH2dy1dI';
+const SUPABASE_BUCKET   = 'resumes';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -35,25 +38,71 @@ const downloadLink  = document.getElementById('resumeDownloadLink');
 // ── Module state ──────────────────────────────────────────────────────────────
 
 let currentUser      = null;
-let currentObjectUrl = null; // blob URL of the last locally-loaded file
-let db, storage;
+let currentObjectUrl = null;
+let db;
 
-// ── Firebase init ─────────────────────────────────────────────────────────────
+// ── Firebase init (auth + firestore only — no Firebase Storage) ───────────────
 
 if (!PLACEHOLDER) {
-  // Reuse the Firebase app already initialised by auth-guard.js
   let app;
   try   { app = getApp(); }
   catch { app = initializeApp(firebaseConfig); }
 
-  db      = getFirestore(app);
-  storage = getStorage(app);
+  db = getFirestore(app);
 
   const auth = getAuth(app);
   onAuthStateChanged(auth, user => {
     currentUser = user;
     if (user) loadSavedResume(user.uid);
   });
+}
+
+// ── Supabase Storage helpers ──────────────────────────────────────────────────
+
+/**
+ * Upload a file to Supabase Storage using the REST API directly.
+ * No SDK required — works in any browser ES module context.
+ *
+ * NOTE: Your Supabase bucket must allow uploads from the anon key.
+ *   Supabase Dashboard → Storage → resumes bucket → Policies
+ *   Add an INSERT policy:  (auth.role() = 'anon')  OR  true
+ */
+async function supabaseUpload(uid, file) {
+  const path = `${uid}/resume.pdf`;
+  const res  = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${path}`,
+    {
+      method:  'POST',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/pdf',
+        'x-upsert':     'true',
+      },
+      body: file,
+    },
+  );
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (HTTP ${res.status})`);
+  }
+
+  // Return the public URL — bucket must be set to public in Supabase dashboard.
+  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${path}`;
+}
+
+/**
+ * Delete the user's resume file from Supabase Storage.
+ */
+async function supabaseDelete(uid) {
+  const path = `${uid}/resume.pdf`;
+  await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${path}`,
+    {
+      method:  'DELETE',
+      headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    },
+  ).catch(() => {}); // ignore — file may not exist yet
 }
 
 // ── State helpers ─────────────────────────────────────────────────────────────
@@ -71,9 +120,9 @@ function showProgress(fileName) {
   progressEl.hidden  = false;
   metaEl.hidden      = true;
   previewEl.hidden   = true;
-  progressName.textContent  = fileName;
-  progressFill.style.width  = '0%';
-  progressPct.textContent   = '0%';
+  progressName.textContent = fileName;
+  progressFill.style.width = '0%';
+  progressPct.textContent  = '0%';
 }
 
 function setProgress(pct) {
@@ -95,8 +144,8 @@ function showFileInfo(fileName, fileSize, uploadedAt) {
 }
 
 function setPreviewSrc(src, fileName) {
-  frameEl.src         = src;
-  downloadLink.href   = src;
+  frameEl.src           = src;
+  downloadLink.href     = src;
   downloadLink.download = fileName;
 }
 
@@ -129,7 +178,7 @@ async function loadSavedResume(uid) {
     showFileInfo(data.fileName, data.fileSize, data.uploadedAt);
     setPreviewSrc(data.storageUrl, data.fileName);
   } catch (err) {
-    console.warn('Resume load failed:', err.message);
+    console.warn('[Resume] Load failed:', err.message);
   }
 }
 
@@ -155,7 +204,7 @@ async function handleFile(file) {
     return;
   }
 
-  // Placeholder mode — local preview only (no persistence)
+  // Placeholder mode — local preview only, no persistence
   if (PLACEHOLDER) {
     revokeObjectUrl();
     currentObjectUrl = URL.createObjectURL(file);
@@ -165,54 +214,45 @@ async function handleFile(file) {
     return;
   }
 
-  // Live mode — upload to Firebase Storage
   const uid = currentUser?.uid;
-  if (!uid) return;
+  if (!uid) { showError('Not signed in — please refresh and sign in again.'); return; }
 
   showProgress(file.name);
   revokeObjectUrl();
 
-  const sRef      = storageRef(storage, `resumes/${uid}/resume.pdf`);
-  const uploadTask = uploadBytesResumable(sRef, file, { contentType: 'application/pdf' });
+  try {
+    // Step 1 — upload to Supabase Storage (show 10 → 80% while in-flight)
+    setProgress(10);
+    console.log('[Resume] Uploading to Supabase Storage…');
+    const storageUrl = await supabaseUpload(uid, file);
+    setProgress(80);
+    console.log('[Resume] Upload success —', storageUrl);
 
-  uploadTask.on(
-    'state_changed',
-    snapshot => setProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
-    uploadErr => {
-      console.error('Upload error:', uploadErr);
-      showDropzone();
-      showError('Upload failed — ' + uploadErr.message);
-    },
-    async () => {
-      try {
-        const storageUrl = await getDownloadURL(uploadTask.snapshot.ref);
+    // Step 2 — persist metadata to Firestore
+    await setDoc(doc(db, 'users', uid, 'resume', 'current'), {
+      fileName:   file.name,
+      fileSize:   file.size,
+      storageUrl,
+      uploadedAt: serverTimestamp(),
+    });
+    setProgress(100);
 
-        await setDoc(doc(db, 'users', uid, 'resume', 'current'), {
-          fileName:   file.name,
-          fileSize:   file.size,
-          storageUrl,
-          uploadedAt: serverTimestamp(),
-        });
-
-        // Use a local object URL for the iframe so the PDF renders instantly;
-        // the Storage URL is persisted to Firestore for future sessions.
-        currentObjectUrl = URL.createObjectURL(file);
-        showFileInfo(file.name, file.size, new Date());
-        setPreviewSrc(currentObjectUrl, file.name);
-      } catch (finalErr) {
-        console.error('Post-upload error:', finalErr);
-        showDropzone();
-        showError('Could not save resume info — ' + finalErr.message);
-      }
-    }
-  );
+    // Step 3 — show preview using a local blob URL (instant, no network round-trip)
+    currentObjectUrl = URL.createObjectURL(file);
+    showFileInfo(file.name, file.size, new Date());
+    setPreviewSrc(currentObjectUrl, file.name);
+  } catch (uploadErr) {
+    console.error('[Resume] Upload error:', uploadErr);
+    showDropzone();
+    showError('Upload failed — ' + uploadErr.message);
+  }
 }
 
 // ── File input: browse button ─────────────────────────────────────────────────
 
 fileInput.addEventListener('change', () => {
   if (fileInput.files[0]) handleFile(fileInput.files[0]);
-  fileInput.value = ''; // reset so same file can be re-selected
+  fileInput.value = '';
 });
 
 // ── File input: replace button ────────────────────────────────────────────────
@@ -230,12 +270,11 @@ dropzone.addEventListener('dragenter', e => {
 });
 
 dropzone.addEventListener('dragover', e => {
-  e.preventDefault(); // required to allow drop
+  e.preventDefault();
   dropzone.classList.add('resume-dropzone--drag-over');
 });
 
 dropzone.addEventListener('dragleave', e => {
-  // Only remove if leaving the dropzone itself (not a child element)
   if (!dropzone.contains(e.relatedTarget)) {
     dropzone.classList.remove('resume-dropzone--drag-over');
   }
@@ -251,17 +290,15 @@ dropzone.addEventListener('drop', e => {
 // ── Remove button ─────────────────────────────────────────────────────────────
 
 removeBtn.addEventListener('click', async () => {
-  // Clear preview immediately
   frameEl.src = '';
   revokeObjectUrl();
 
   if (!PLACEHOLDER && currentUser) {
     try {
-      await deleteObject(storageRef(storage, `resumes/${currentUser.uid}/resume.pdf`));
+      await supabaseDelete(currentUser.uid);
       await deleteDoc(doc(db, 'users', currentUser.uid, 'resume', 'current'));
     } catch (err) {
-      // File may not exist in Storage (e.g. placeholder switch); ignore
-      console.warn('Resume delete skipped:', err.code);
+      console.warn('[Resume] Delete skipped:', err.message);
     }
   }
 

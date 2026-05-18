@@ -1,22 +1,25 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { useAuth } from "../context/AuthContext";
 import "./ResumePage.css";
 
-const MAX_BYTES       = 10 * 1024 * 1024; // 10 MB
-const BUCKET          = "resumes";
-const UPLOAD_TIMEOUT  = 30_000; // ms — surfaces a clear error instead of hanging forever
+const MAX_BYTES      = 10 * 1024 * 1024; // 10 MB
+const BUCKET         = "resumes";
+const UPLOAD_TIMEOUT = 30_000;
 
-function buildStoragePath(fileName) {
-  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return `${Date.now()}-${safe}`;
-}
+// Fixed path per user — upsert=true means replace replaces the same object.
+// This also lets us derive the URL from the UID on page load without a DB query.
+const storagePath = (uid) => `${uid}/resume.pdf`;
 
 export default function ResumePage() {
+  const { user } = useAuth();
+
   const [file,          setFile]          = useState(null);
   const [previewUrl,    setPreviewUrl]    = useState(null);
   const [publicUrl,     setPublicUrl]     = useState(null);
   const [dragging,      setDragging]      = useState(false);
   const [uploading,     setUploading]     = useState(false);
+  const [loading,       setLoading]       = useState(true);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [errorMsg,      setErrorMsg]      = useState("");
   const [copied,        setCopied]        = useState(false);
@@ -24,18 +27,40 @@ export default function ResumePage() {
   const fileInputRef = useRef(null);
   const dragCounter  = useRef(0);
 
+  // Revoke blob URL on unmount or when previewUrl changes to a new blob
   useEffect(() => {
     return () => {
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
+  // Load existing resume on mount — if the user uploaded before, show it immediately
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured) { setLoading(false); return; }
+
+    const path = storagePath(user.id);
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    const url = urlData?.publicUrl;
+
+    // Verify the file actually exists with a HEAD request before showing it
+    fetch(url, { method: "HEAD" })
+      .then((res) => {
+        if (res.ok) {
+          setPublicUrl(url);
+          setPreviewUrl(url);
+          // Synthesise a minimal file descriptor for the UI
+          setFile({ name: "resume.pdf", size: null });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [user]);
+
   const processFile = useCallback(
     async (f) => {
       setErrorMsg("");
       setUploadSuccess(false);
 
-      // ── Step 1: validate before touching any state ────────────
       if (f.type !== "application/pdf") {
         setErrorMsg("Only PDF files are supported.");
         return;
@@ -45,23 +70,24 @@ export default function ResumePage() {
         return;
       }
       if (!isSupabaseConfigured) {
-        console.error(
-          "[Resume] Supabase not configured — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.",
-        );
+        console.error("[Resume] Supabase not configured — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
         setErrorMsg("Storage is not configured. Please contact support.");
         return;
       }
+      if (!user) {
+        setErrorMsg("You must be signed in to upload a resume.");
+        return;
+      }
 
-      // ── Step 2: build path, then log (storagePath is defined here) ──
-      const storagePath = buildStoragePath(f.name);
+      const path = storagePath(user.id);
 
-      console.log("[Resume] BUCKET =", BUCKET);
-      console.log("[Resume] FILE NAME =", f.name);
-      console.log("[Resume] FILE SIZE =", f.size);
-      console.log("[Resume] FILE TYPE =", f.type);
-      console.log("[Resume] STORAGE PATH =", storagePath);
+      console.log("[Resume] BUCKET      =", BUCKET);
+      console.log("[Resume] STORAGE PATH=", path);
+      console.log("[Resume] FILE NAME   =", f.name);
+      console.log("[Resume] FILE SIZE   =", f.size);
+      console.log("[Resume] FILE TYPE   =", f.type);
 
-      // ── Step 3: update UI ─────────────────────────────────────
+      // Revoke previous preview blob before creating a new one
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
       const newBlobUrl = URL.createObjectURL(f);
       setFile(f);
@@ -69,25 +95,19 @@ export default function ResumePage() {
       setPublicUrl(null);
       setUploading(true);
 
-      // ── Step 4: verify Supabase session ───────────────────────
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       console.log(
-        "[Resume] Supabase session present:",
+        "[Resume] Session present:",
         !!sessionData?.session,
-        sessionError ? `(session error: ${sessionError.message})` : "",
+        sessionError ? `(error: ${sessionError.message})` : "",
       );
 
-      // ── Step 5: upload with 30-second timeout ─────────────────
       try {
         console.log("[Resume] Starting upload…");
 
         const uploadPromise = supabase.storage
           .from(BUCKET)
-          .upload(storagePath, f, {
-            contentType: "application/pdf",
-            upsert: true,
-          });
+          .upload(path, f, { contentType: "application/pdf", upsert: true });
 
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(
@@ -105,11 +125,8 @@ export default function ResumePage() {
 
         console.log("[Resume] Upload success —", data);
 
-        // ── Step 6: get public URL ────────────────────────────
-        const { data: urlData } = supabase.storage
-          .from(BUCKET)
-          .getPublicUrl(storagePath);
-
+        // getPublicUrl is synchronous — no network call, just constructs the URL
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
         console.log("[Resume] Public URL —", urlData.publicUrl);
 
         setPublicUrl(urlData.publicUrl);
@@ -124,7 +141,7 @@ export default function ResumePage() {
         setUploading(false);
       }
     },
-    [previewUrl],
+    [previewUrl, user],
   );
 
   const handleDrop = (e) => {
@@ -173,10 +190,28 @@ export default function ResumePage() {
   };
 
   const formatBytes = (n) => {
-    if (n < 1024)         return `${n} B`;
+    if (!n)             return "";
+    if (n < 1024)       return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  if (loading) {
+    return (
+      <>
+        <div className="content__header">
+          <div>
+            <h1 className="content__title">Resume</h1>
+            <p className="content__subtitle">Upload and preview your resume PDF.</p>
+          </div>
+        </div>
+        <div className="card" style={{ padding: "40px", textAlign: "center" }}>
+          <div className="resume-progress__fill resume-progress__fill--indeterminate"
+               style={{ width: "60%", margin: "0 auto" }} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -244,7 +279,9 @@ export default function ResumePage() {
             <span className="material-icons resume-meta__icon">picture_as_pdf</span>
             <div className="resume-meta__info">
               <span className="resume-meta__name">{file.name}</span>
-              <span className="resume-meta__size">{formatBytes(file.size)}</span>
+              {file.size && (
+                <span className="resume-meta__size">{formatBytes(file.size)}</span>
+              )}
             </div>
             {!uploading && (
               <div className="resume-meta__actions">

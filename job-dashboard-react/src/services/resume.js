@@ -10,8 +10,9 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const BUCKET  = 'resumes';
-const API_BASE = '/api/resume';
+const BUCKET          = 'resumes';
+const API_BASE        = '/api/resume';
+const UPLOAD_TIMEOUT  = 30_000; // ms
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -56,12 +57,21 @@ export async function uploadResume(uid, file, getToken) {
   const { data: sessionData } = await supabase.auth.getSession();
   console.log('[Resume] Supabase session present:', !!sessionData?.session);
 
-  const { data, error } = await supabase.storage
+  const uploadPromise = supabase.storage
     .from(BUCKET)
     .upload(storagePath, file, {
       contentType: 'application/pdf',
       upsert: true,
     });
+
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(
+      () => reject(new Error('Upload timed out — check your internet connection.')),
+      UPLOAD_TIMEOUT,
+    ),
+  );
+
+  const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
 
   if (error) {
     console.error('[Resume] Upload error —', error.message, error);
